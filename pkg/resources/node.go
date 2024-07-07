@@ -1,6 +1,6 @@
 package resources
 
-import "yoshi_k3s/pkg/ssh_handler"
+import "terraform-yoshi-k3s/pkg/ssh_handler"
 
 type K3sMasterNodeConfig struct {
 	Host    string

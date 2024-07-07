@@ -1,4 +1,4 @@
-module yoshi_k3s
+module terraform-yoshi-k3s
 
 go 1.22.5
 

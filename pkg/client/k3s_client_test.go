@@ -1,9 +1,9 @@
 package client
 
 import (
+	"terraform-yoshi-k3s/pkg/resources"
+	"terraform-yoshi-k3s/pkg/ssh_handler"
 	"testing"
-	"yoshi_k3s/pkg/resources"
-	"yoshi_k3s/pkg/ssh_handler"
 )
 
 func TestK3sClient_ConfigureMasterNode(t *testing.T) {

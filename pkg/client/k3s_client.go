@@ -5,8 +5,8 @@ import (
 	"errors"
 	"fmt"
 	"strings"
-	"yoshi_k3s/pkg/resources"
-	"yoshi_k3s/pkg/ssh_handler"
+	"terraform-yoshi-k3s/pkg/resources"
+	"terraform-yoshi-k3s/pkg/ssh_handler"
 )
 
 type K3sClient struct {
