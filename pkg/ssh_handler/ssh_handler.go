@@ -21,10 +21,22 @@ func (s *SSHHandler) WithSession(ssCommand SshCommandInterface, input bytes.Buff
 	}
 	defer session.Close()
 
+	modes := ssh.TerminalModes{
+		ssh.ECHO:          0,     // disable echoing
+		ssh.TTY_OP_ISPEED: 14400, // input speed = 14.4kbaud
+		ssh.TTY_OP_OSPEED: 14400, // output speed = 14.4kbaud
+	}
+
+	err = session.RequestPty("xterm", 80, 40, modes)
+	if err != nil {
+		return "", err
+	}
+
 	if input.Len() > 0 {
 		session.Stdin = &input
 	}
 	session.Stdout = &output
+	session.Stderr = &output
 
 	var command string
 	command, err = ssCommand.GetParsedCommand()

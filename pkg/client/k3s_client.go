@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"errors"
 	"fmt"
+	"strings"
 	"yoshi_k3s/pkg/resources"
 	"yoshi_k3s/pkg/ssh_handler"
 )
@@ -18,8 +19,8 @@ type K3sClient struct {
 
 func NewK3sClient() *K3sClient {
 	return &K3sClient{
-		k3sCommandPrefix: "curl -sfL https://get.k3s.io | ",
-		k3sBaseCommand:   "sh -",
+		k3sCommandPrefix: "curl -sfL https://get.k3s.io |",
+		k3sBaseCommand:   "sh -s -",
 	}
 }
 
@@ -29,11 +30,33 @@ func (c *K3sClient) ConfigureMasterNode(k3sConfig resources.K3sMasterNodeConfig,
 		return err
 	}
 
-	var envVariablesMap = make(map[string]string)
+	options = append([]string{"server"}, options...)
 
-	envVariablesMap["INSTALL_K3S_EXEC"] = "server"
+	err = c.configureNode(k3sConfig, make(map[string]string), options)
+	if err != nil {
+		return err
+	}
 
-	return c.configureNode(k3sConfig, envVariablesMap, options)
+	sshHandler, err := c.createSshHandler(k3sConfig.ConnectionConfig)
+	if err != nil {
+		return err
+	}
+
+	commands := []string{
+		"sudo chmod 644 /etc/rancher/k3s/k3s.yaml;",
+		"mkdir -p $HOME/.kube;",
+		"cp /etc/rancher/k3s/k3s.yaml $HOME/.kube/k3s.yaml;",
+		"chmod g+r $HOME/.kube/k3s.yaml;",
+	}
+
+	output, err := sshHandler.WithSession(
+		&ssh_handler.SshCommand{
+			BaseCommand: strings.Join(commands, " "),
+		},
+		*bytes.NewBuffer([]byte(k3sConfig.ConnectionConfig.Password + "\n")),
+	)
+	fmt.Println(output)
+	return err
 }
 
 func (c *K3sClient) ConfigureWorkerNode(k3sConfig resources.K3sWorkerNodeConfig, options []string) error {
@@ -43,9 +66,9 @@ func (c *K3sClient) ConfigureWorkerNode(k3sConfig resources.K3sWorkerNodeConfig,
 	}
 
 	var envVariablesMap = make(map[string]string)
-
-	envVariablesMap["INSTALL_K3S_EXEC"] = "agent"
 	envVariablesMap["K3S_URL"] = fmt.Sprintf("https://%s:6443", k3sConfig.Server)
+
+	options = append([]string{"agent"}, options...)
 
 	return c.configureNode(k3sConfig.K3sMasterNodeConfig, envVariablesMap, options)
 }
@@ -53,10 +76,13 @@ func (c *K3sClient) ConfigureWorkerNode(k3sConfig resources.K3sWorkerNodeConfig,
 func (c *K3sClient) configureNode(k3sConfig resources.K3sMasterNodeConfig,
 	envVariablesMap map[string]string,
 	options []string) error {
-	envVariablesMap["INSTALL_K3S_VERSION"] = k3sConfig.Version
 	envVariablesMap["K3S_TOKEN"] = k3sConfig.Token
 
-	var sshCommand = ssh_handler.SshCommand{
+	if k3sConfig.Version != "" {
+		envVariablesMap["K3S_VERSION"] = k3sConfig.Version
+	}
+
+	var sshCommandCreateNode = ssh_handler.SshCommand{
 		CommandPrefix: c.k3sCommandPrefix,
 		BaseCommand:   c.k3sBaseCommand,
 		EnvVars:       envVariablesMap,
@@ -68,14 +94,12 @@ func (c *K3sClient) configureNode(k3sConfig resources.K3sMasterNodeConfig,
 		return err
 	}
 
-	output, err := sshHandler.WithSession(&sshCommand, bytes.Buffer{})
-	if err != nil {
-		return err
-	}
-
+	output, err := sshHandler.WithSession(
+		&sshCommandCreateNode,
+		*bytes.NewBuffer([]byte(k3sConfig.ConnectionConfig.Password + "\n")),
+	)
 	fmt.Println(output)
-
-	return nil
+	return err
 }
 
 func (c *K3sClient) createSshHandler(sshConfig ssh_handler.SshConfig) (*ssh_handler.SSHHandler, error) {
@@ -96,10 +120,6 @@ func (c *K3sClient) validateNodeConfig(nodeConfig resources.K3sMasterNodeConfig)
 
 	if nodeConfig.Token == "" {
 		return errors.New("token is empty")
-	}
-
-	if nodeConfig.Version == "" {
-		return errors.New("version is empty")
 	}
 
 	return c.validateNodeConnection(nodeConfig.ConnectionConfig)

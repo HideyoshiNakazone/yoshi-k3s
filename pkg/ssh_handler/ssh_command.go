@@ -22,11 +22,11 @@ func (s *SshCommand) GetParsedCommand() (string, error) {
 	}
 
 	if s.CommandPrefix != "" {
-		command = s.CommandPrefix + " "
+		command = fmt.Sprintf("%s ", s.CommandPrefix)
 	}
 
 	for key, value := range s.EnvVars {
-		command += key + "=" + value + " "
+		command += fmt.Sprintf("%s=\"%s\" ", key, value)
 	}
 
 	command += s.BaseCommand
