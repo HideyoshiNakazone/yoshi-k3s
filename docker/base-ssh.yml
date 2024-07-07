@@ -3,3 +3,4 @@ services:
     build:
       context: .
       dockerfile: ./ubuntu.dockerfile
+    privileged: true
