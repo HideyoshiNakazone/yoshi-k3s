@@ -93,7 +93,7 @@ func (c *K3sClient) configureNode(k3sConfig resources.NodeConfigInterface,
 	envVariablesMap["K3S_TOKEN"] = k3sConfig.GetToken()
 
 	if k3sConfig.GetVersion() != "" {
-		envVariablesMap["K3S_VERSION"] = k3sConfig.GetVersion()
+		envVariablesMap["INSTALL_K3S_VERSION"] = k3sConfig.GetVersion()
 	}
 
 	var sshCommandCreateNode = ssh_handler.SshCommand{
