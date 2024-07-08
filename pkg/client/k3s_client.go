@@ -70,12 +70,16 @@ func (c *K3sClient) ConfigureWorkerNode(k3sConfig resources.K3sWorkerNodeConfig,
 		return err
 	}
 
+	if len(c.masterNodes) == 0 {
+		return errors.New("no master nodes configured")
+	}
+
 	var envVariablesMap = make(map[string]string)
 	envVariablesMap["K3S_URL"] = fmt.Sprintf("https://%s:6443", k3sConfig.Server)
 
 	options = append([]string{"agent"}, options...)
 
-	err = c.configureNode(k3sConfig.K3sMasterNodeConfig, envVariablesMap, options)
+	err = c.configureNode(k3sConfig, envVariablesMap, options)
 	if err == nil {
 		c.workerNodes = append(c.workerNodes, k3sConfig)
 	}
@@ -83,13 +87,13 @@ func (c *K3sClient) ConfigureWorkerNode(k3sConfig resources.K3sWorkerNodeConfig,
 	return err
 }
 
-func (c *K3sClient) configureNode(k3sConfig resources.K3sMasterNodeConfig,
+func (c *K3sClient) configureNode(k3sConfig resources.NodeConfigInterface,
 	envVariablesMap map[string]string,
 	options []string) error {
-	envVariablesMap["K3S_TOKEN"] = k3sConfig.Token
+	envVariablesMap["K3S_TOKEN"] = k3sConfig.GetToken()
 
-	if k3sConfig.Version != "" {
-		envVariablesMap["K3S_VERSION"] = k3sConfig.Version
+	if k3sConfig.GetVersion() != "" {
+		envVariablesMap["K3S_VERSION"] = k3sConfig.GetVersion()
 	}
 
 	var sshCommandCreateNode = ssh_handler.SshCommand{
@@ -99,14 +103,14 @@ func (c *K3sClient) configureNode(k3sConfig resources.K3sMasterNodeConfig,
 		Args:          options,
 	}
 
-	sshHandler, err := c.createSshHandler(k3sConfig.ConnectionConfig)
+	sshHandler, err := c.createSshHandler(k3sConfig.GetConnectionConfig())
 	if err != nil {
 		return err
 	}
 
 	output, err := sshHandler.WithSession(
 		&sshCommandCreateNode,
-		*bytes.NewBuffer([]byte(k3sConfig.ConnectionConfig.Password + "\n")),
+		*bytes.NewBuffer([]byte(k3sConfig.GetConnectionConfig().Password + "\n")),
 	)
 	fmt.Println(output)
 	return err
@@ -123,24 +127,24 @@ func (c *K3sClient) createSshHandler(sshConfig ssh_handler.SshConfig) (*ssh_hand
 	}
 }
 
-func (c *K3sClient) validateNodeConfig(nodeConfig resources.K3sMasterNodeConfig) error {
-	if nodeConfig.Host == "" {
+func (c *K3sClient) validateNodeConfig(nodeConfig resources.NodeConfigInterface) error {
+	if nodeConfig.GetHost() == "" {
 		return errors.New("host is empty")
 	}
 
-	if nodeConfig.Token == "" {
+	if nodeConfig.GetToken() == "" {
 		return errors.New("token is empty")
 	}
 
-	return c.validateNodeConnection(nodeConfig.ConnectionConfig)
+	return c.validateNodeConnection(nodeConfig.GetConnectionConfig())
 }
 
 func (c *K3sClient) validateWorkerNodeConfig(nodeConfig resources.K3sWorkerNodeConfig) error {
-	if nodeConfig.Server == "" {
+	if nodeConfig.GetServer() == "" {
 		return errors.New("server is empty")
 	}
 
-	return c.validateNodeConfig(nodeConfig.K3sMasterNodeConfig)
+	return c.validateNodeConfig(nodeConfig)
 }
 
 func (c *K3sClient) validateNodeConnection(nodeConnection ssh_handler.SshConfig) error {

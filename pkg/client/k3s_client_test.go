@@ -7,10 +7,8 @@ import (
 )
 
 func TestK3sClient_ConfigureNode(t *testing.T) {
-	host := "localhost"
-	port := "3333"
-	user := "sshuser"
-	password := "password"
+	k3sToken := "token"
+	k3sVersion := "v1.30.2+k3s1"
 
 	c := NewK3sClient()
 
@@ -21,14 +19,14 @@ func TestK3sClient_ConfigureNode(t *testing.T) {
 	}
 
 	var masterNodeConfig = resources.K3sMasterNodeConfig{
-		Host:    host,
-		Token:   "token",
-		Version: "v1.30.2+k3s1",
+		Host:    "localhost",
+		Token:   k3sToken,
+		Version: k3sVersion,
 		ConnectionConfig: ssh_handler.SshConfig{
-			Host:     host,
-			Port:     port,
-			User:     user,
-			Password: password,
+			Host:     "localhost",
+			Port:     "2222",
+			User:     "sshuser",
+			Password: "password",
 		},
 	}
 
@@ -39,8 +37,16 @@ func TestK3sClient_ConfigureNode(t *testing.T) {
 	}
 
 	var workerNodeConfig = resources.K3sWorkerNodeConfig{
-		Server:              "master_node",
-		K3sMasterNodeConfig: masterNodeConfig,
+		Server:  "master_node",
+		Host:    "localhost",
+		Token:   k3sToken,
+		Version: k3sVersion,
+		ConnectionConfig: ssh_handler.SshConfig{
+			Host:     "localhost",
+			Port:     "3333",
+			User:     "sshuser",
+			Password: "password",
+		},
 	}
 
 	workerNodeArgs := []string{
