@@ -9,18 +9,23 @@ import (
 	"strings"
 )
 
+type NodeMapping[NodeType resources.NodeConfigInterface] map[string]NodeType
+
 type K3sClient struct {
 	k3sCommandPrefix string
 	k3sBaseCommand   string
 
-	masterNodes []resources.K3sMasterNodeConfig
-	workerNodes []resources.K3sWorkerNodeConfig
+	masterNodes NodeMapping[resources.K3sMasterNodeConfig]
+	workerNodes NodeMapping[resources.K3sWorkerNodeConfig]
 }
 
-func NewK3sClient() *K3sClient {
+func NewK3sClient(masterNodes NodeMapping[resources.K3sMasterNodeConfig],
+	workerNodes NodeMapping[resources.K3sWorkerNodeConfig]) *K3sClient {
 	return &K3sClient{
 		k3sCommandPrefix: "curl -sfL https://get.k3s.io |",
 		k3sBaseCommand:   "sh -s -",
+		masterNodes:      masterNodes,
+		workerNodes:      workerNodes,
 	}
 }
 
@@ -58,20 +63,20 @@ func (c *K3sClient) ConfigureMasterNode(k3sConfig resources.K3sMasterNodeConfig,
 	)
 
 	if err == nil {
-		c.masterNodes = append(c.masterNodes, k3sConfig)
+		c.masterNodes[k3sConfig.GetHost()] = k3sConfig
 	}
 
 	return err
 }
 
 func (c *K3sClient) ConfigureWorkerNode(k3sConfig resources.K3sWorkerNodeConfig, options []string) error {
+	if len(c.masterNodes) == 0 {
+		return errors.New("no master nodes configured")
+	}
+
 	err := k3sConfig.IsValid()
 	if err != nil {
 		return err
-	}
-
-	if len(c.masterNodes) == 0 {
-		return errors.New("no master nodes configured")
 	}
 
 	var envVariablesMap = make(map[string]string)
@@ -81,7 +86,7 @@ func (c *K3sClient) ConfigureWorkerNode(k3sConfig resources.K3sWorkerNodeConfig,
 
 	err = c.configureNode(k3sConfig, envVariablesMap, options)
 	if err == nil {
-		c.workerNodes = append(c.workerNodes, k3sConfig)
+		c.workerNodes[k3sConfig.GetHost()] = k3sConfig
 	}
 
 	return err
