@@ -1,4 +1,4 @@
-module terraform-yoshi-k3s
+module HideyoshiNakazone/terraform-yoshi-k3s
 
 go 1.22.5
 

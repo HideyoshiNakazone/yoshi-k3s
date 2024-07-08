@@ -4,20 +4,20 @@ import (
 	"bytes"
 	"fmt"
 	"golang.org/x/crypto/ssh"
+	"os"
 )
 
 type SSHHandler struct {
 	sshClient *ssh.Client
 }
 
-func (s *SSHHandler) WithSession(ssCommand SshCommandInterface, input bytes.Buffer) (string, error) {
+func (s *SSHHandler) WithSession(ssCommand SshCommandInterface, input bytes.Buffer) error {
 	var session *ssh.Session
-	var output bytes.Buffer
 	var err error
 
 	session, err = s.sshClient.NewSession()
 	if err != nil {
-		return output.String(), err
+		return err
 	}
 	defer session.Close()
 
@@ -29,23 +29,23 @@ func (s *SSHHandler) WithSession(ssCommand SshCommandInterface, input bytes.Buff
 
 	err = session.RequestPty("xterm", 80, 40, modes)
 	if err != nil {
-		return "", err
+		return err
 	}
 
 	if input.Len() > 0 {
 		session.Stdin = &input
 	}
-	session.Stdout = &output
-	session.Stderr = &output
+	session.Stdout = os.Stdout
+	session.Stderr = os.Stderr
 
 	var command string
 	command, err = ssCommand.GetParsedCommand()
 	if err != nil {
-		return "", err
+		return err
 	}
 
 	err = session.Run(command)
-	return output.String(), err
+	return err
 }
 
 func NewSShHandlerFromPrivateKey(host string, port string, user string, privateKey string) (*SSHHandler, error) {

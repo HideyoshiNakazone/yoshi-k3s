@@ -1,8 +1,8 @@
 package client
 
 import (
-	"terraform-yoshi-k3s/pkg/resources"
-	"terraform-yoshi-k3s/pkg/ssh_handler"
+	"HideyoshiNakazone/terraform-yoshi-k3s/pkg/resources"
+	"HideyoshiNakazone/terraform-yoshi-k3s/pkg/ssh_handler"
 	"testing"
 )
 
@@ -18,43 +18,49 @@ func TestK3sClient_ConfigureNode(t *testing.T) {
 		"--snapshotter native",
 	}
 
-	var masterNodeConfig = resources.K3sMasterNodeConfig{
-		Host:    "localhost",
-		Token:   k3sToken,
-		Version: k3sVersion,
-		ConnectionConfig: ssh_handler.SshConfig{
-			Host:     "localhost",
-			Port:     "2222",
-			User:     "sshuser",
-			Password: "password",
-		},
-	}
+	var masterNodeSshConfig = ssh_handler.NewSshConfig(
+		"localhost",
+		"2222",
+		"sshuser",
+		"password",
+		"",
+		"",
+	)
+	var masterNodeConfig = resources.NewK3sMasterNodeConfig(
+		"localhost",
+		k3sToken,
+		k3sVersion,
+		masterNodeSshConfig,
+	)
 
-	err := c.ConfigureMasterNode(masterNodeConfig, masterNodeArgs)
+	err := c.ConfigureMasterNode(*masterNodeConfig, masterNodeArgs)
 	if err != nil {
 		t.Errorf("Error configuring master node: %v", err)
 		return
 	}
 
-	var workerNodeConfig = resources.K3sWorkerNodeConfig{
-		Server:  "master_node",
-		Host:    "localhost",
-		Token:   k3sToken,
-		Version: k3sVersion,
-		ConnectionConfig: ssh_handler.SshConfig{
-			Host:     "localhost",
-			Port:     "3333",
-			User:     "sshuser",
-			Password: "password",
-		},
-	}
+	var workerNodeSshConfig = ssh_handler.NewSshConfig(
+		"localhost",
+		"3333",
+		"sshuser",
+		"password",
+		"",
+		"",
+	)
+	var workerNodeConfig = resources.NewK3sWorkerNodeConfig(
+		"master_node",
+		"localhost",
+		k3sToken,
+		k3sVersion,
+		workerNodeSshConfig,
+	)
 
 	workerNodeArgs := []string{
 		"--node-label node_type=worker",
 		"--snapshotter native",
 	}
 
-	err = c.ConfigureWorkerNode(workerNodeConfig, workerNodeArgs)
+	err = c.ConfigureWorkerNode(*workerNodeConfig, workerNodeArgs)
 	if err != nil {
 		t.Errorf("Error configuring worker node: %v", err)
 		return

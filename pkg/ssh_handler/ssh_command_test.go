@@ -20,7 +20,7 @@ func TestSshCommand_GetParsedCommand(t *testing.T) {
 		t.Errorf("Error parsing command: %s", err)
 	}
 
-	expectedCommand := "curl -sfL https://get.k3s.io | key=value echo arg1 arg2"
+	expectedCommand := "curl -sfL https://get.k3s.io | key=\"value\" echo arg1 arg2"
 	if parsedCommand != expectedCommand {
 		t.Errorf("Expected command %s, got %s", expectedCommand, parsedCommand)
 	}

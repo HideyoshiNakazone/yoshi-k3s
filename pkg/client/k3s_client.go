@@ -1,12 +1,12 @@
 package client
 
 import (
+	"HideyoshiNakazone/terraform-yoshi-k3s/pkg/resources"
+	"HideyoshiNakazone/terraform-yoshi-k3s/pkg/ssh_handler"
 	"bytes"
 	"errors"
 	"fmt"
 	"strings"
-	"terraform-yoshi-k3s/pkg/resources"
-	"terraform-yoshi-k3s/pkg/ssh_handler"
 )
 
 type K3sClient struct {
@@ -25,7 +25,7 @@ func NewK3sClient() *K3sClient {
 }
 
 func (c *K3sClient) ConfigureMasterNode(k3sConfig resources.K3sMasterNodeConfig, options []string) error {
-	err := c.validateNodeConfig(k3sConfig)
+	err := k3sConfig.IsValid()
 	if err != nil {
 		return err
 	}
@@ -37,7 +37,7 @@ func (c *K3sClient) ConfigureMasterNode(k3sConfig resources.K3sMasterNodeConfig,
 		return err
 	}
 
-	sshHandler, err := c.createSshHandler(k3sConfig.ConnectionConfig)
+	sshHandler, err := c.createSshHandler(k3sConfig.GetConnectionConfig())
 	if err != nil {
 		return err
 	}
@@ -49,13 +49,13 @@ func (c *K3sClient) ConfigureMasterNode(k3sConfig resources.K3sMasterNodeConfig,
 		"chmod g+r $HOME/.kube/k3s.yaml;",
 	}
 
-	output, err := sshHandler.WithSession(
+	config := k3sConfig.GetConnectionConfig()
+	err = sshHandler.WithSession(
 		&ssh_handler.SshCommand{
 			BaseCommand: strings.Join(commands, " "),
 		},
-		*bytes.NewBuffer([]byte(k3sConfig.ConnectionConfig.Password + "\n")),
+		*bytes.NewBuffer([]byte(config.GetPassword() + "\n")),
 	)
-	fmt.Println(output)
 
 	if err == nil {
 		c.masterNodes = append(c.masterNodes, k3sConfig)
@@ -65,7 +65,7 @@ func (c *K3sClient) ConfigureMasterNode(k3sConfig resources.K3sMasterNodeConfig,
 }
 
 func (c *K3sClient) ConfigureWorkerNode(k3sConfig resources.K3sWorkerNodeConfig, options []string) error {
-	err := c.validateWorkerNodeConfig(k3sConfig)
+	err := k3sConfig.IsValid()
 	if err != nil {
 		return err
 	}
@@ -75,7 +75,7 @@ func (c *K3sClient) ConfigureWorkerNode(k3sConfig resources.K3sWorkerNodeConfig,
 	}
 
 	var envVariablesMap = make(map[string]string)
-	envVariablesMap["K3S_URL"] = fmt.Sprintf("https://%s:6443", k3sConfig.Server)
+	envVariablesMap["K3S_URL"] = fmt.Sprintf("https://%s:6443", k3sConfig.GetServer())
 
 	options = append([]string{"agent"}, options...)
 
@@ -108,57 +108,28 @@ func (c *K3sClient) configureNode(k3sConfig resources.NodeConfigInterface,
 		return err
 	}
 
-	output, err := sshHandler.WithSession(
+	config := k3sConfig.GetConnectionConfig()
+	err = sshHandler.WithSession(
 		&sshCommandCreateNode,
-		*bytes.NewBuffer([]byte(k3sConfig.GetConnectionConfig().Password + "\n")),
+		*bytes.NewBuffer([]byte(config.GetPassword() + "\n")),
 	)
-	fmt.Println(output)
 	return err
 }
 
 func (c *K3sClient) createSshHandler(sshConfig ssh_handler.SshConfig) (*ssh_handler.SSHHandler, error) {
-	if sshConfig.Password != "" {
-		return ssh_handler.NewSShHandlerFromPassword(sshConfig.Host, sshConfig.Port, sshConfig.User, sshConfig.Password)
-	} else if sshConfig.PrivateKeyPassphrase != "" {
-		return ssh_handler.NewSshHandlerFromPrivateKeyWithPassphrase(sshConfig.Host, sshConfig.Port, sshConfig.User,
-			sshConfig.PrivateKey, sshConfig.PrivateKeyPassphrase)
+	if sshConfig.GetPassword() != "" {
+		return ssh_handler.NewSShHandlerFromPassword(
+			sshConfig.GetHost(), sshConfig.GetPort(), sshConfig.GetUser(), sshConfig.GetPassword(),
+		)
+	} else if sshConfig.GetPrivateKeyPassphrase() != "" {
+		return ssh_handler.NewSshHandlerFromPrivateKeyWithPassphrase(
+			sshConfig.GetHost(), sshConfig.GetPort(), sshConfig.GetUser(),
+			sshConfig.GetPrivateKey(), sshConfig.GetPrivateKeyPassphrase(),
+		)
 	} else {
-		return ssh_handler.NewSShHandlerFromPrivateKey(sshConfig.Host, sshConfig.Port, sshConfig.User, sshConfig.PrivateKey)
+		return ssh_handler.NewSShHandlerFromPrivateKey(
+			sshConfig.GetHost(), sshConfig.GetPort(),
+			sshConfig.GetUser(), sshConfig.GetPrivateKey(),
+		)
 	}
-}
-
-func (c *K3sClient) validateNodeConfig(nodeConfig resources.NodeConfigInterface) error {
-	if nodeConfig.GetHost() == "" {
-		return errors.New("host is empty")
-	}
-
-	if nodeConfig.GetToken() == "" {
-		return errors.New("token is empty")
-	}
-
-	return c.validateNodeConnection(nodeConfig.GetConnectionConfig())
-}
-
-func (c *K3sClient) validateWorkerNodeConfig(nodeConfig resources.K3sWorkerNodeConfig) error {
-	if nodeConfig.GetServer() == "" {
-		return errors.New("server is empty")
-	}
-
-	return c.validateNodeConfig(nodeConfig)
-}
-
-func (c *K3sClient) validateNodeConnection(nodeConnection ssh_handler.SshConfig) error {
-	if nodeConnection.Host == "" {
-		return errors.New("host is empty")
-	}
-
-	if nodeConnection.User == "" {
-		return errors.New("user is empty")
-	}
-
-	if nodeConnection.PrivateKey == "" && nodeConnection.Password == "" {
-		return errors.New("either privateKey or password must be set")
-	}
-
-	return nil
 }

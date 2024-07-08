@@ -1,23 +1,27 @@
 package resources
 
-import "testing"
+import (
+	"HideyoshiNakazone/terraform-yoshi-k3s/pkg/ssh_handler"
+	"testing"
+)
 
 func TestK3sNode_Init_Checks_If_Valid(t *testing.T) {
-	n := &K3sNode{}
-
-	err := n.Init("127.0.0.1", "token", []string{"worker"},
-		"latest", map[string]string{})
-
-	if err == nil {
-		t.Errorf("Error: expected to failt")
+	n := K3sMasterNodeConfig{
+		host:    "127.0.0.1",
+		token:   "token",
+		version: "latest",
+		connectionConfig: ssh_handler.NewSshConfig(
+			"host",
+			"port",
+			"user",
+			"password",
+			"",
+			"",
+		),
 	}
 
-	nValid := &K3sNode{nodeType: MASTER}
-
-	err = nValid.Init("127.0.0.1", "token", []string{"worker"},
-		"latest", map[string]string{})
-
+	err := isNodeConfigValid(n)
 	if err != nil {
-		t.Errorf("Error: expected to pass")
+		t.Errorf("Expected valid node config, got error: %s", err)
 	}
 }

@@ -6,7 +6,6 @@ import (
 	"crypto/rsa"
 	"crypto/x509"
 	"encoding/pem"
-	"fmt"
 	"golang.org/x/crypto/ssh"
 	"log"
 	"testing"
@@ -91,12 +90,10 @@ func TestSSHHandler_WithSession(t *testing.T) {
 		BaseCommand: "echo",
 		Args:        []string{"'hello world'"},
 	}
-	output, err := sshHandler.WithSession(command, bytes.Buffer{})
+	err = sshHandler.WithSession(command, bytes.Buffer{})
 	if err != nil {
 		t.Errorf("Error running command: %s", err)
 	}
-
-	fmt.Println(output)
 }
 
 // Auxiliar functions
@@ -110,7 +107,7 @@ func copyPublicKeyToServer(sshHandler *SSHHandler, passphrase string) (*[]byte, 
 	publicKey, err := generatePublicKey(&privateKey.PublicKey)
 	pemBytes, err := encodePrivateKeyToPEM(privateKey, passphrase)
 
-	_, err = sshHandler.WithSession(&SshCommand{
+	err = sshHandler.WithSession(&SshCommand{
 		BaseCommand: "mkdir -p ~/.ssh",
 	}, bytes.Buffer{})
 	if err != nil {
@@ -118,7 +115,7 @@ func copyPublicKeyToServer(sshHandler *SSHHandler, passphrase string) (*[]byte, 
 	}
 
 	publicKeyBytes := *bytes.NewBuffer(publicKey)
-	_, err = sshHandler.WithSession(&SshCommand{
+	err = sshHandler.WithSession(&SshCommand{
 		BaseCommand: "cat >> ~/.ssh/authorized_keys",
 	}, publicKeyBytes)
 	if err != nil {
