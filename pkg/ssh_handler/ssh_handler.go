@@ -11,15 +11,40 @@ type SSHHandler struct {
 	sshClient *ssh.Client
 }
 
-func (s *SSHHandler) WithSession(ssCommand SshCommandInterface, input bytes.Buffer) error {
-	var session *ssh.Session
-	var err error
+func NewSshHandler(sshConfig *SshConfig) (*SSHHandler, error) {
+	sshClient, err := createNewSshClient(sshConfig)
+	if err != nil {
+		return nil, err
+	}
+	return &SSHHandler{
+		sshClient: sshClient,
+	}, nil
+}
 
-	session, err = s.sshClient.NewSession()
+func (s *SSHHandler) WithSession(ssCommand SshCommandInterface, input *bytes.Buffer) error {
+	session, err := s.createSshSession()
 	if err != nil {
 		return err
 	}
 	defer session.Close()
+
+	if input.Len() > 0 {
+		session.Stdin = input
+	}
+
+	command, err := ssCommand.GetParsedCommand()
+	if err != nil {
+		return err
+	}
+
+	return session.Run(command)
+}
+
+func (s *SSHHandler) createSshSession() (*ssh.Session, error) {
+	session, err := s.sshClient.NewSession()
+	if err != nil {
+		return nil, err
+	}
 
 	modes := ssh.TerminalModes{
 		ssh.ECHO:          0,     // disable echoing
@@ -27,95 +52,81 @@ func (s *SSHHandler) WithSession(ssCommand SshCommandInterface, input bytes.Buff
 		ssh.TTY_OP_OSPEED: 14400, // output speed = 14.4kbaud
 	}
 
-	err = session.RequestPty("xterm", 80, 40, modes)
-	if err != nil {
-		return err
-	}
-
-	if input.Len() > 0 {
-		session.Stdin = &input
+	if err := session.RequestPty("xterm", 80, 40, modes); err != nil {
+		session.Close()
+		return nil, err
 	}
 	session.Stdout = os.Stdout
 	session.Stderr = os.Stderr
 
-	var command string
-	command, err = ssCommand.GetParsedCommand()
-	if err != nil {
-		return err
-	}
-
-	err = session.Run(command)
-	return err
+	return session, nil
 }
 
-func NewSShHandlerFromPrivateKey(host string, port string, user string, privateKey string) (*SSHHandler, error) {
-	hostAddrString, err := parseAddrString(host, port)
+func createNewSshClient(sshConfig *SshConfig) (*ssh.Client, error) {
+	if sshConfig.GetPassword() != "" {
+		return newSShClientFromPassword(sshConfig)
+	} else if sshConfig.GetPrivateKeyPassphrase() != "" {
+		return newSshClientFromPrivateKeyWithPassphrase(sshConfig)
+	} else {
+		return newSShClientFromPrivateKey(sshConfig)
+	}
+}
+
+func newSShClientFromPrivateKey(sshConfig *SshConfig) (*ssh.Client, error) {
+	hostAddrString, err := parseAddrString(sshConfig.GetHost(), sshConfig.GetPort())
 	if err != nil {
 		return nil, err
 	}
 
-	signer, err := ssh.ParsePrivateKey([]byte(privateKey))
+	signer, err := ssh.ParsePrivateKey([]byte(sshConfig.GetPrivateKey()))
 	if err != nil {
 		return nil, err
 	}
 
-	sshClient, err := ssh.Dial("tcp", hostAddrString, &ssh.ClientConfig{
-		User:            user,
+	return ssh.Dial("tcp", hostAddrString, &ssh.ClientConfig{
+		User:            sshConfig.GetUser(),
 		HostKeyCallback: ssh.InsecureIgnoreHostKey(),
 		Auth: []ssh.AuthMethod{
 			ssh.PublicKeys(signer),
 		},
 	})
-	if err != nil {
-		return nil, err
-	}
-
-	return &SSHHandler{sshClient: sshClient}, nil
 }
 
-func NewSshHandlerFromPrivateKeyWithPassphrase(host string, port string, user string, privateKey string, passphrase string) (*SSHHandler, error) {
-	hostAddrString, err := parseAddrString(host, port)
+func newSshClientFromPrivateKeyWithPassphrase(sshConfig *SshConfig) (*ssh.Client, error) {
+	hostAddrString, err := parseAddrString(sshConfig.GetHost(), sshConfig.GetPort())
 	if err != nil {
 		return nil, err
 	}
 
-	signer, err := ssh.ParsePrivateKeyWithPassphrase([]byte(privateKey), []byte(passphrase))
+	signer, err := ssh.ParsePrivateKeyWithPassphrase(
+		[]byte(sshConfig.GetPrivateKey()), []byte(sshConfig.GetPrivateKeyPassphrase()),
+	)
 	if err != nil {
 		return nil, err
 	}
 
-	sshClient, err := ssh.Dial("tcp", hostAddrString, &ssh.ClientConfig{
-		User:            user,
+	return ssh.Dial("tcp", hostAddrString, &ssh.ClientConfig{
+		User:            sshConfig.GetUser(),
 		HostKeyCallback: ssh.InsecureIgnoreHostKey(),
 		Auth: []ssh.AuthMethod{
 			ssh.PublicKeys(signer),
 		},
 	})
-	if err != nil {
-		return nil, err
-	}
-
-	return &SSHHandler{sshClient: sshClient}, nil
 }
 
-func NewSShHandlerFromPassword(host string, port string, user string, password string) (*SSHHandler, error) {
-	hostAddrString, err := parseAddrString(host, port)
+func newSShClientFromPassword(sshConfig *SshConfig) (*ssh.Client, error) {
+	hostAddrString, err := parseAddrString(sshConfig.GetHost(), sshConfig.GetPort())
 	if err != nil {
 		return nil, err
 	}
 
-	sshClient, err := ssh.Dial("tcp", hostAddrString, &ssh.ClientConfig{
-		User:            user,
+	return ssh.Dial("tcp", hostAddrString, &ssh.ClientConfig{
+		User:            sshConfig.GetUser(),
 		HostKeyCallback: ssh.InsecureIgnoreHostKey(),
 		Auth: []ssh.AuthMethod{
-			ssh.Password(password),
+			ssh.Password(sshConfig.GetPassword()),
 		},
 	})
-	if err != nil {
-		return nil, err
-	}
-
-	return &SSHHandler{sshClient: sshClient}, nil
 }
 
 func parseAddrString(host string, port string) (string, error) {

@@ -37,7 +37,7 @@ func (c *K3sClient) ConfigureMasterNode(k3sConfig resources.K3sMasterNodeConfig,
 		return err
 	}
 
-	sshHandler, err := c.createSshHandler(k3sConfig.GetConnectionConfig())
+	sshHandler, err := ssh_handler.NewSshHandler(k3sConfig.GetConnectionConfig())
 	if err != nil {
 		return err
 	}
@@ -54,7 +54,7 @@ func (c *K3sClient) ConfigureMasterNode(k3sConfig resources.K3sMasterNodeConfig,
 		&ssh_handler.SshCommand{
 			BaseCommand: strings.Join(commands, " "),
 		},
-		*bytes.NewBuffer([]byte(config.GetPassword() + "\n")),
+		bytes.NewBuffer([]byte(config.GetPassword()+"\n")),
 	)
 
 	if err == nil {
@@ -103,7 +103,7 @@ func (c *K3sClient) configureNode(k3sConfig resources.NodeConfigInterface,
 		Args:          options,
 	}
 
-	sshHandler, err := c.createSshHandler(k3sConfig.GetConnectionConfig())
+	sshHandler, err := ssh_handler.NewSshHandler(k3sConfig.GetConnectionConfig())
 	if err != nil {
 		return err
 	}
@@ -111,25 +111,7 @@ func (c *K3sClient) configureNode(k3sConfig resources.NodeConfigInterface,
 	config := k3sConfig.GetConnectionConfig()
 	err = sshHandler.WithSession(
 		&sshCommandCreateNode,
-		*bytes.NewBuffer([]byte(config.GetPassword() + "\n")),
+		bytes.NewBuffer([]byte(config.GetPassword()+"\n")),
 	)
 	return err
-}
-
-func (c *K3sClient) createSshHandler(sshConfig ssh_handler.SshConfig) (*ssh_handler.SSHHandler, error) {
-	if sshConfig.GetPassword() != "" {
-		return ssh_handler.NewSShHandlerFromPassword(
-			sshConfig.GetHost(), sshConfig.GetPort(), sshConfig.GetUser(), sshConfig.GetPassword(),
-		)
-	} else if sshConfig.GetPrivateKeyPassphrase() != "" {
-		return ssh_handler.NewSshHandlerFromPrivateKeyWithPassphrase(
-			sshConfig.GetHost(), sshConfig.GetPort(), sshConfig.GetUser(),
-			sshConfig.GetPrivateKey(), sshConfig.GetPrivateKeyPassphrase(),
-		)
-	} else {
-		return ssh_handler.NewSShHandlerFromPrivateKey(
-			sshConfig.GetHost(), sshConfig.GetPort(),
-			sshConfig.GetUser(), sshConfig.GetPrivateKey(),
-		)
-	}
 }

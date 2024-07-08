@@ -9,7 +9,7 @@ type NodeConfigInterface interface {
 	GetHost() string
 	GetToken() string
 	GetVersion() string
-	GetConnectionConfig() ssh_handler.SshConfig
+	GetConnectionConfig() *ssh_handler.SshConfig
 
 	IsValid() error
 }
@@ -64,8 +64,8 @@ func (k K3sMasterNodeConfig) GetToken() string {
 func (k K3sMasterNodeConfig) GetVersion() string {
 	return k.version
 }
-func (k K3sMasterNodeConfig) GetConnectionConfig() ssh_handler.SshConfig {
-	return *k.connectionConfig
+func (k K3sMasterNodeConfig) GetConnectionConfig() *ssh_handler.SshConfig {
+	return k.connectionConfig
 }
 func (k K3sMasterNodeConfig) IsValid() error {
 	return isNodeConfigValid(k)
@@ -103,8 +103,8 @@ func (k K3sWorkerNodeConfig) GetToken() string {
 func (k K3sWorkerNodeConfig) GetVersion() string {
 	return k.version
 }
-func (k K3sWorkerNodeConfig) GetConnectionConfig() ssh_handler.SshConfig {
-	return *k.connectionConfig
+func (k K3sWorkerNodeConfig) GetConnectionConfig() *ssh_handler.SshConfig {
+	return k.connectionConfig
 }
 func (k K3sWorkerNodeConfig) IsValid() error {
 	if k.GetServer() == "" {

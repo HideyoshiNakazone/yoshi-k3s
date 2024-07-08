@@ -8,7 +8,7 @@ import (
 
 func TestK3sClient_ConfigureNode(t *testing.T) {
 	k3sToken := "token"
-	k3sVersion := "v1.30.2+k3s1"
+	k3sVersion := "v1.30.2+k3s2"
 
 	c := NewK3sClient()
 

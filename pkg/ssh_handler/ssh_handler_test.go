@@ -6,6 +6,7 @@ import (
 	"crypto/rsa"
 	"crypto/x509"
 	"encoding/pem"
+	"fmt"
 	"golang.org/x/crypto/ssh"
 	"log"
 	"testing"
@@ -17,9 +18,12 @@ func TestNewSShHandlerFromPassword(t *testing.T) {
 	user := "sshuser"
 	password := "password"
 
-	_, err := NewSShHandlerFromPassword(host, port, user, password)
+	_, err := NewSshHandler(
+		NewSshConfig(host, port, user, password, "", ""),
+	)
 	if err != nil {
-		t.Errorf("Error creating ssh handler: %s", err)
+		t.Errorf("Error creating SSH handler: %s", err)
+		return
 	}
 }
 
@@ -29,12 +33,13 @@ func TestNewSshHandlerFromPrivateKey(t *testing.T) {
 	user := "sshuser"
 	password := "password"
 
-	sshHandler, err := NewSShHandlerFromPassword(host, port, user, password)
-	if err != nil {
-		t.Errorf("Error creating ssh handler: %s", err)
-	}
+	var passphrase string
 
-	privateKeyBytes, err := copyPublicKeyToServer(sshHandler, "")
+	sshHandler, err := NewSshHandler(
+		NewSshConfig(host, port, user, password, "", ""),
+	)
+
+	privateKeyBytes, err := copyPublicKeyToServer(sshHandler, passphrase)
 	if err != nil {
 		t.Errorf("Error copying public key to server: %s", err)
 		return
@@ -42,9 +47,11 @@ func TestNewSshHandlerFromPrivateKey(t *testing.T) {
 
 	privateKey := string(*privateKeyBytes)
 
-	_, err = NewSShHandlerFromPrivateKey(host, port, user, privateKey)
+	_, err = NewSshHandler(
+		NewSshConfig(host, port, user, password, privateKey, passphrase),
+	)
 	if err != nil {
-		t.Errorf("Error creating ssh handler: %s", err)
+		t.Errorf("Error creating SSH handler: %s", err)
 		return
 	}
 }
@@ -56,12 +63,11 @@ func TestNewSshHandlerFromPrivateKeyWithPassphrase(t *testing.T) {
 	password := "password"
 	passphrase := "test_passphrase"
 
-	sshHandler, err := NewSShHandlerFromPassword(host, port, user, password)
-	if err != nil {
-		t.Errorf("Error creating ssh handler: %s", err)
-	}
+	sshHandler, err := NewSshHandler(
+		NewSshConfig(host, port, user, password, "", ""),
+	)
 
-	privateKeyBytes, err := copyPublicKeyToServer(sshHandler, "test_passphrase")
+	privateKeyBytes, err := copyPublicKeyToServer(sshHandler, passphrase)
 	if err != nil {
 		t.Errorf("Error copying public key to server: %s", err)
 		return
@@ -69,9 +75,12 @@ func TestNewSshHandlerFromPrivateKeyWithPassphrase(t *testing.T) {
 
 	privateKey := string(*privateKeyBytes)
 
-	_, err = NewSshHandlerFromPrivateKeyWithPassphrase(host, port, user, privateKey, passphrase)
+	_, err = NewSshHandler(
+		NewSshConfig(host, port, user, password, privateKey, passphrase),
+	)
 	if err != nil {
-		t.Errorf("Error creating ssh handler: %s", err)
+		t.Errorf("Error creating SSH handler: %s", err)
+		return
 	}
 }
 
@@ -81,16 +90,19 @@ func TestSSHHandler_WithSession(t *testing.T) {
 	user := "sshuser"
 	password := "password"
 
-	sshHandler, err := NewSShHandlerFromPassword(host, port, user, password)
+	sshHandler, err := NewSshHandler(
+		NewSshConfig(host, port, user, password, "", ""),
+	)
 	if err != nil {
-		t.Errorf("Error creating ssh handler: %s", err)
+		t.Errorf("Error creating SSH handler: %s", err)
+		return
 	}
 
 	command := &SshCommand{
 		BaseCommand: "echo",
 		Args:        []string{"'hello world'"},
 	}
-	err = sshHandler.WithSession(command, bytes.Buffer{})
+	err = sshHandler.WithSession(command, &bytes.Buffer{})
 	if err != nil {
 		t.Errorf("Error running command: %s", err)
 	}
@@ -108,16 +120,15 @@ func copyPublicKeyToServer(sshHandler *SSHHandler, passphrase string) (*[]byte, 
 	pemBytes, err := encodePrivateKeyToPEM(privateKey, passphrase)
 
 	err = sshHandler.WithSession(&SshCommand{
-		BaseCommand: "mkdir -p ~/.ssh",
-	}, bytes.Buffer{})
+		BaseCommand: "mkdir -p ~/.ssh;",
+	}, &bytes.Buffer{})
 	if err != nil {
 		return nil, err
 	}
 
-	publicKeyBytes := *bytes.NewBuffer(publicKey)
 	err = sshHandler.WithSession(&SshCommand{
-		BaseCommand: "cat >> ~/.ssh/authorized_keys",
-	}, publicKeyBytes)
+		BaseCommand: fmt.Sprintf("echo '%s' >> ~/.ssh/authorized_keys", publicKey),
+	}, &bytes.Buffer{})
 	if err != nil {
 		return nil, err
 	}
