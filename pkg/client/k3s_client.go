@@ -56,6 +56,11 @@ func (c *K3sClient) ConfigureMasterNode(k3sConfig resources.K3sMasterNodeConfig,
 		*bytes.NewBuffer([]byte(k3sConfig.ConnectionConfig.Password + "\n")),
 	)
 	fmt.Println(output)
+
+	if err == nil {
+		c.masterNodes = append(c.masterNodes, k3sConfig)
+	}
+
 	return err
 }
 
@@ -70,7 +75,12 @@ func (c *K3sClient) ConfigureWorkerNode(k3sConfig resources.K3sWorkerNodeConfig,
 
 	options = append([]string{"agent"}, options...)
 
-	return c.configureNode(k3sConfig.K3sMasterNodeConfig, envVariablesMap, options)
+	err = c.configureNode(k3sConfig.K3sMasterNodeConfig, envVariablesMap, options)
+	if err == nil {
+		c.workerNodes = append(c.workerNodes, k3sConfig)
+	}
+
+	return err
 }
 
 func (c *K3sClient) configureNode(k3sConfig resources.K3sMasterNodeConfig,

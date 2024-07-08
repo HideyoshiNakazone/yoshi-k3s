@@ -6,47 +6,17 @@ import (
 	"testing"
 )
 
-func TestK3sClient_ConfigureMasterNode(t *testing.T) {
-	host := "localhost"
-	port := "2222"
-	user := "sshuser"
-	password := "password"
-
-	nodeArgs := []string{
-		"--disable traefik",
-		"--node-label node_type=master",
-		"--snapshotter native",
-	}
-
-	var nodeConfig = resources.K3sMasterNodeConfig{
-		Host:    host,
-		Token:   "token",
-		Version: "v1.30.2+k3s1",
-		ConnectionConfig: ssh_handler.SshConfig{
-			Host:     host,
-			Port:     port,
-			User:     user,
-			Password: password,
-		},
-	}
-
-	c := NewK3sClient()
-
-	err := c.ConfigureMasterNode(nodeConfig, nodeArgs)
-	if err != nil {
-		t.Errorf("Error configuring master node: %v", err)
-		return
-	}
-}
-
-func TestK3sClient_ConfigureWorkerNode(t *testing.T) {
+func TestK3sClient_ConfigureNode(t *testing.T) {
 	host := "localhost"
 	port := "3333"
 	user := "sshuser"
 	password := "password"
 
-	nodeArgs := []string{
-		"--node-label node_type=worker",
+	c := NewK3sClient()
+
+	masterNodeArgs := []string{
+		"--disable traefik",
+		"--node-label node_type=master",
 		"--snapshotter native",
 	}
 
@@ -62,16 +32,37 @@ func TestK3sClient_ConfigureWorkerNode(t *testing.T) {
 		},
 	}
 
-	var nodeConfig = resources.K3sWorkerNodeConfig{
+	err := c.ConfigureMasterNode(masterNodeConfig, masterNodeArgs)
+	if err != nil {
+		t.Errorf("Error configuring master node: %v", err)
+		return
+	}
+
+	var workerNodeConfig = resources.K3sWorkerNodeConfig{
 		Server:              "master_node",
 		K3sMasterNodeConfig: masterNodeConfig,
 	}
 
-	c := NewK3sClient()
+	workerNodeArgs := []string{
+		"--node-label node_type=worker",
+		"--snapshotter native",
+	}
 
-	err := c.ConfigureWorkerNode(nodeConfig, nodeArgs)
+	err = c.ConfigureWorkerNode(workerNodeConfig, workerNodeArgs)
 	if err != nil {
 		t.Errorf("Error configuring worker node: %v", err)
 		return
 	}
+
+	if len(c.masterNodes) == 0 {
+		t.Errorf("Master node not added to client")
+		return
+	}
+	t.Logf("Master nodes in the cluster: %v", len(c.masterNodes))
+
+	if len(c.workerNodes) == 0 {
+		t.Errorf("Worker node not added to client")
+		return
+	}
+	t.Logf("Worker nodes in the cluster: %v", len(c.workerNodes))
 }
