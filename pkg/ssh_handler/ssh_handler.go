@@ -2,13 +2,20 @@ package ssh_handler
 
 import (
 	"bytes"
+	"context"
 	"fmt"
 	"golang.org/x/crypto/ssh"
 	"os"
 )
 
+type SshOptions struct {
+	WithPTY bool
+}
+
 type SSHHandler struct {
 	sshClient *ssh.Client
+
+	sshContext context.Context
 }
 
 func NewSshHandler(sshConfig *SshConfig) (*SSHHandler, error) {
@@ -16,9 +23,18 @@ func NewSshHandler(sshConfig *SshConfig) (*SSHHandler, error) {
 	if err != nil {
 		return nil, err
 	}
+
 	return &SSHHandler{
 		sshClient: sshClient,
 	}, nil
+}
+
+func (s *SSHHandler) WithOptions(options *SshOptions) (*context.Context, *context.CancelFunc) {
+	ctx, cancelFunc := context.WithCancel(context.Background())
+
+	s.sshContext = context.WithValue(ctx, "options", options)
+
+	return &ctx, &cancelFunc
 }
 
 func (s *SSHHandler) WithSession(ssCommand SshCommandInterface, input *bytes.Buffer) error {
@@ -46,16 +62,24 @@ func (s *SSHHandler) createSshSession() (*ssh.Session, error) {
 		return nil, err
 	}
 
-	modes := ssh.TerminalModes{
-		ssh.ECHO:          0,     // disable echoing
-		ssh.TTY_OP_ISPEED: 14400, // input speed = 14.4kbaud
-		ssh.TTY_OP_OSPEED: 14400, // output speed = 14.4kbaud
+	var options *SshOptions
+	if s.sshContext != nil {
+		options = s.sshContext.Value("options").(*SshOptions)
 	}
 
-	if err := session.RequestPty("xterm", 80, 40, modes); err != nil {
-		session.Close()
-		return nil, err
+	if options == nil || options.WithPTY {
+		modes := ssh.TerminalModes{
+			ssh.ECHO:          0,     // disable echoing
+			ssh.TTY_OP_ISPEED: 14400, // input speed = 14.4kbaud
+			ssh.TTY_OP_OSPEED: 14400, // output speed = 14.4kbaud
+		}
+
+		if err := session.RequestPty("xterm", 80, 40, modes); err != nil {
+			session.Close()
+			return nil, err
+		}
 	}
+
 	session.Stdout = os.Stdout
 	session.Stderr = os.Stderr
 

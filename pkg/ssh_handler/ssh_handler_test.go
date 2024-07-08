@@ -6,7 +6,6 @@ import (
 	"crypto/rsa"
 	"crypto/x509"
 	"encoding/pem"
-	"fmt"
 	"golang.org/x/crypto/ssh"
 	"log"
 	"testing"
@@ -126,11 +125,15 @@ func copyPublicKeyToServer(sshHandler *SSHHandler, passphrase string) (*[]byte, 
 		return nil, err
 	}
 
-	err = sshHandler.WithSession(&SshCommand{
-		BaseCommand: fmt.Sprintf("echo '%s' >> ~/.ssh/authorized_keys", publicKey),
-	}, &bytes.Buffer{})
-	if err != nil {
-		return nil, err
+	if ctxt, cancelFunc := sshHandler.WithOptions(&SshOptions{WithPTY: false}); ctxt != nil {
+		defer (*cancelFunc)()
+
+		err = sshHandler.WithSession(&SshCommand{
+			BaseCommand: "cat >> ~/.ssh/authorized_keys",
+		}, bytes.NewBuffer(publicKey))
+		if err != nil {
+			return nil, err
+		}
 	}
 
 	return &pemBytes, nil
