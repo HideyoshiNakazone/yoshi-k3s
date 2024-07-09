@@ -65,3 +65,31 @@ func (s *SshConfig) IsValid() error {
 
 	return nil
 }
+
+func (s *SshConfig) HasChanged(other *SshConfig) bool {
+	if s.host != other.GetHost() {
+		return true
+	}
+
+	if s.port != other.GetPort() {
+		return true
+	}
+
+	if s.user != other.GetUser() {
+		return true
+	}
+
+	if s.password != other.GetPassword() {
+		return true
+	}
+
+	if s.privateKey != other.GetPrivateKey() {
+		return true
+	}
+
+	if s.privateKeyPassphrase != other.GetPrivateKeyPassphrase() {
+		return true
+	}
+
+	return false
+}

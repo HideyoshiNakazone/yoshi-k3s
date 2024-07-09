@@ -9,7 +9,11 @@ import (
 	"strings"
 )
 
-type NodeMapping[NodeType resources.NodeConfigInterface] map[string]NodeType
+type NodeMappingData[NodeType resources.NodeConfigInterface] struct {
+	nodeConfig NodeType
+	options    []string
+}
+type NodeMapping[NodeType resources.NodeConfigInterface] map[string]NodeMappingData[NodeType]
 
 type K3sClient struct {
 	k3sCommandPrefix string
@@ -63,7 +67,10 @@ func (c *K3sClient) ConfigureMasterNode(k3sConfig resources.K3sMasterNodeConfig,
 	)
 
 	if err == nil {
-		c.masterNodes[k3sConfig.GetHost()] = k3sConfig
+		c.masterNodes[k3sConfig.GetHost()] = NodeMappingData[resources.K3sMasterNodeConfig]{
+			nodeConfig: k3sConfig,
+			options:    options,
+		}
 	}
 
 	return err
@@ -86,10 +93,97 @@ func (c *K3sClient) ConfigureWorkerNode(k3sConfig resources.K3sWorkerNodeConfig,
 
 	err = c.configureNode(k3sConfig, envVariablesMap, options)
 	if err == nil {
-		c.workerNodes[k3sConfig.GetHost()] = k3sConfig
+		c.workerNodes[k3sConfig.GetHost()] = NodeMappingData[resources.K3sWorkerNodeConfig]{
+			nodeConfig: k3sConfig,
+			options:    options,
+		}
 	}
 
 	return err
+}
+
+func (c *K3sClient) IsMasterNodeConfigured(nodeId string) bool {
+	_, ok := c.masterNodes[nodeId]
+	return ok
+}
+
+func (c *K3sClient) IsWorkerNodeConfigured(nodeId string) bool {
+	_, ok := c.workerNodes[nodeId]
+	return ok
+}
+
+func (c *K3sClient) DestroyMasterNode(nodeId string) error {
+	nodeData, ok := c.masterNodes[nodeId]
+	if !ok {
+		return errors.New("node not found")
+	}
+
+	sshHandler, err := ssh_handler.NewSshHandler(nodeData.nodeConfig.GetConnectionConfig())
+	if err != nil {
+		return err
+	}
+
+	config := nodeData.nodeConfig.GetConnectionConfig()
+	err = sshHandler.WithSession(
+		&ssh_handler.SshCommand{
+			BaseCommand: "sudo k3s-uninstall.sh",
+		},
+		bytes.NewBuffer([]byte(config.GetPassword()+"\n")),
+	)
+
+	if err == nil {
+		delete(c.masterNodes, nodeId)
+	}
+
+	return err
+}
+
+func (c *K3sClient) DestroyWorkerNode(nodeId string) error {
+	nodeData, ok := c.workerNodes[nodeId]
+	if !ok {
+		return errors.New("node not found")
+	}
+
+	sshHandler, err := ssh_handler.NewSshHandler(nodeData.nodeConfig.GetConnectionConfig())
+	if err != nil {
+		return err
+	}
+
+	config := nodeData.nodeConfig.GetConnectionConfig()
+	err = sshHandler.WithSession(
+		&ssh_handler.SshCommand{
+			BaseCommand: "sudo k3s-agent-uninstall.sh",
+		},
+		bytes.NewBuffer([]byte(config.GetPassword()+"\n")),
+	)
+
+	if err == nil {
+		delete(c.workerNodes, nodeId)
+	}
+
+	return err
+}
+
+func (c *K3sClient) IsNodeDirty(k3sConfig resources.NodeConfigInterface, options []string) bool {
+	nodeData, ok := c.masterNodes[k3sConfig.GetHost()]
+	if !ok {
+		return true
+	}
+
+	isDirty := k3sConfig.HasChanged(nodeData.nodeConfig)
+
+	isDirty = isDirty || len(options) != len(nodeData.options)
+
+	for _, opt := range options {
+		optIsDirty := true
+		for _, nodeOpt := range nodeData.options {
+			optIsDirty = optIsDirty && opt != nodeOpt
+		}
+
+		isDirty = isDirty || optIsDirty
+	}
+
+	return isDirty
 }
 
 func (c *K3sClient) configureNode(k3sConfig resources.NodeConfigInterface,

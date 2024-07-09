@@ -72,15 +72,27 @@ func TestK3sClient_ConfigureNode(t *testing.T) {
 		return
 	}
 
-	if len(c.masterNodes) == 0 {
+	if !c.IsMasterNodeConfigured(masterNodeConfig.GetHost()) {
 		t.Errorf("Master node not added to client")
 		return
 	}
 	t.Logf("Master nodes in the cluster: %v", len(c.masterNodes))
 
-	if len(c.workerNodes) == 0 {
+	if !c.IsWorkerNodeConfigured(workerNodeConfig.GetHost()) {
 		t.Errorf("Worker node not added to client")
 		return
 	}
 	t.Logf("Worker nodes in the cluster: %v", len(c.workerNodes))
+
+	err = c.DestroyMasterNode(masterNodeConfig.GetHost())
+	if err != nil {
+		t.Errorf("Error destroying master node: %v", err)
+		return
+	}
+
+	err = c.DestroyWorkerNode(workerNodeConfig.GetHost())
+	if err != nil {
+		t.Errorf("Error destroying worker node: %v", err)
+		return
+	}
 }
