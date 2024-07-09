@@ -1,8 +1,8 @@
 package resources
 
 import (
-	"HideyoshiNakazone/terraform-yoshi-k3s/pkg/ssh_handler"
 	"fmt"
+	"github.com/HideyoshiNakazone/yoshi-k3s/pkg/ssh_handler"
 )
 
 type NodeConfigInterface interface {

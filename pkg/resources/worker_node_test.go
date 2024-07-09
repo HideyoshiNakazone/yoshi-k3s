@@ -1,7 +1,7 @@
 package resources
 
 import (
-	"HideyoshiNakazone/terraform-yoshi-k3s/pkg/ssh_handler"
+	"github.com/HideyoshiNakazone/yoshi-k3s/pkg/ssh_handler"
 	"testing"
 )
 

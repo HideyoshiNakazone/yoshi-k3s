@@ -1,11 +1,11 @@
 package client
 
 import (
-	"HideyoshiNakazone/terraform-yoshi-k3s/pkg/resources"
-	"HideyoshiNakazone/terraform-yoshi-k3s/pkg/ssh_handler"
 	"bytes"
 	"errors"
 	"fmt"
+	"github.com/HideyoshiNakazone/yoshi-k3s/pkg/resources"
+	"github.com/HideyoshiNakazone/yoshi-k3s/pkg/ssh_handler"
 	"golang.org/x/crypto/ssh"
 	"strings"
 )
