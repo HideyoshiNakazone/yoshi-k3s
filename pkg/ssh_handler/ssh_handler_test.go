@@ -109,7 +109,7 @@ func TestSSHHandler_WithSession(t *testing.T) {
 
 // Auxiliar functions
 
-func copyPublicKeyToServer(sshHandler *SSHHandler, passphrase string) (*[]byte, error) {
+func copyPublicKeyToServer(sshHandler *SshHandler, passphrase string) (*[]byte, error) {
 	privateKey, err := generatePrivateKey(4096)
 	if err != nil {
 		return nil, err
@@ -125,15 +125,11 @@ func copyPublicKeyToServer(sshHandler *SSHHandler, passphrase string) (*[]byte, 
 		return nil, err
 	}
 
-	if ctxt, cancelFunc := sshHandler.WithOptions(&SshOptions{WithPTY: false}); ctxt != nil {
-		defer (*cancelFunc)()
-
-		err = sshHandler.WithSession(&SshCommand{
-			BaseCommand: "cat >> ~/.ssh/authorized_keys",
-		}, bytes.NewBuffer(publicKey))
-		if err != nil {
-			return nil, err
-		}
+	err = sshHandler.WithSession(&SshCommand{
+		BaseCommand: "cat >> ~/.ssh/authorized_keys",
+	}, bytes.NewBuffer(publicKey))
+	if err != nil {
+		return nil, err
 	}
 
 	return &pemBytes, nil

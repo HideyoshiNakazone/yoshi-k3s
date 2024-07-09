@@ -8,36 +8,34 @@ import (
 	"os"
 )
 
-type SshOptions struct {
-	WithPTY bool
-}
-
-type SSHHandler struct {
+type SshHandler struct {
 	sshClient *ssh.Client
 
-	sshContext context.Context
+	sshContext     context.Context
+	sshContextFlag string
 }
 
-func NewSshHandler(sshConfig *SshConfig) (*SSHHandler, error) {
+func NewSshHandler(sshConfig *SshConfig) (*SshHandler, error) {
 	sshClient, err := createNewSshClient(sshConfig)
 	if err != nil {
 		return nil, err
 	}
 
-	return &SSHHandler{
-		sshClient: sshClient,
+	return &SshHandler{
+		sshClient:      sshClient,
+		sshContextFlag: "terminalModes",
 	}, nil
 }
 
-func (s *SSHHandler) WithOptions(options *SshOptions) (*context.Context, *context.CancelFunc) {
+func (s *SshHandler) WithTerminalMode(modes *ssh.TerminalModes) (*context.Context, *context.CancelFunc) {
 	ctx, cancelFunc := context.WithCancel(context.Background())
 
-	s.sshContext = context.WithValue(ctx, "options", options)
+	s.sshContext = context.WithValue(ctx, s.sshContextFlag, modes)
 
 	return &ctx, &cancelFunc
 }
 
-func (s *SSHHandler) WithSession(ssCommand SshCommandInterface, input *bytes.Buffer) error {
+func (s *SshHandler) WithSession(ssCommand SshCommandInterface, input *bytes.Buffer) error {
 	session, err := s.createSshSession()
 	if err != nil {
 		return err
@@ -56,25 +54,23 @@ func (s *SSHHandler) WithSession(ssCommand SshCommandInterface, input *bytes.Buf
 	return session.Run(command)
 }
 
-func (s *SSHHandler) createSshSession() (*ssh.Session, error) {
+func (s *SshHandler) Close() error {
+	return s.sshClient.Close()
+}
+
+func (s *SshHandler) createSshSession() (*ssh.Session, error) {
 	session, err := s.sshClient.NewSession()
 	if err != nil {
 		return nil, err
 	}
 
-	var options *SshOptions
+	var terminalModes *ssh.TerminalModes
 	if s.sshContext != nil {
-		options = s.sshContext.Value("options").(*SshOptions)
+		terminalModes = s.sshContext.Value(s.sshContextFlag).(*ssh.TerminalModes)
 	}
 
-	if options == nil || options.WithPTY {
-		modes := ssh.TerminalModes{
-			ssh.ECHO:          0,     // disable echoing
-			ssh.TTY_OP_ISPEED: 14400, // input speed = 14.4kbaud
-			ssh.TTY_OP_OSPEED: 14400, // output speed = 14.4kbaud
-		}
-
-		if err := session.RequestPty("xterm", 80, 40, modes); err != nil {
+	if terminalModes != nil {
+		if err := session.RequestPty("xterm", 80, 40, *terminalModes); err != nil {
 			session.Close()
 			return nil, err
 		}

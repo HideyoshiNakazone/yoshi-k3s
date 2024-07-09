@@ -6,6 +6,7 @@ import (
 	"bytes"
 	"errors"
 	"fmt"
+	"golang.org/x/crypto/ssh"
 	"strings"
 )
 
@@ -59,11 +60,12 @@ func (c *K3sClient) ConfigureMasterNode(k3sConfig resources.K3sMasterNodeConfig,
 	}
 
 	config := k3sConfig.GetConnectionConfig()
-	err = sshHandler.WithSession(
+	err = c.executeK3sCommand(
+		sshHandler,
 		&ssh_handler.SshCommand{
 			BaseCommand: strings.Join(commands, " "),
 		},
-		bytes.NewBuffer([]byte(config.GetPassword()+"\n")),
+		config.GetPassword(),
 	)
 
 	if err == nil {
@@ -124,11 +126,12 @@ func (c *K3sClient) DestroyMasterNode(nodeId string) error {
 	}
 
 	config := nodeData.nodeConfig.GetConnectionConfig()
-	err = sshHandler.WithSession(
+	err = c.executeK3sCommand(
+		sshHandler,
 		&ssh_handler.SshCommand{
 			BaseCommand: "sudo k3s-uninstall.sh",
 		},
-		bytes.NewBuffer([]byte(config.GetPassword()+"\n")),
+		config.GetPassword(),
 	)
 
 	if err == nil {
@@ -150,11 +153,12 @@ func (c *K3sClient) DestroyWorkerNode(nodeId string) error {
 	}
 
 	config := nodeData.nodeConfig.GetConnectionConfig()
-	err = sshHandler.WithSession(
+	err = c.executeK3sCommand(
+		sshHandler,
 		&ssh_handler.SshCommand{
 			BaseCommand: "sudo k3s-agent-uninstall.sh",
 		},
-		bytes.NewBuffer([]byte(config.GetPassword()+"\n")),
+		config.GetPassword(),
 	)
 
 	if err == nil {
@@ -208,9 +212,28 @@ func (c *K3sClient) configureNode(k3sConfig resources.NodeConfigInterface,
 	}
 
 	config := k3sConfig.GetConnectionConfig()
-	err = sshHandler.WithSession(
+	return c.executeK3sCommand(
+		sshHandler,
 		&sshCommandCreateNode,
-		bytes.NewBuffer([]byte(config.GetPassword()+"\n")),
+		config.GetPassword(),
 	)
-	return err
+}
+
+func (c *K3sClient) executeK3sCommand(sshHandler *ssh_handler.SshHandler,
+	command *ssh_handler.SshCommand,
+	password string) error {
+	terminalMode := ssh.TerminalModes{
+		ssh.ECHO:          0,
+		ssh.TTY_OP_ISPEED: 14400, // input speed = 14.4kbaud
+		ssh.TTY_OP_OSPEED: 14400, // output speed = 14.4kbaud
+	}
+	if ctxt, cancelFunc := sshHandler.WithTerminalMode(&terminalMode); ctxt != nil {
+		defer (*cancelFunc)()
+		return sshHandler.WithSession(
+			command,
+			bytes.NewBuffer([]byte(password+"\n")),
+		)
+	}
+
+	return errors.New("failed to configure ssh session")
 }
