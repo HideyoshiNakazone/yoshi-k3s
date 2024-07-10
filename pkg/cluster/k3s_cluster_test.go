@@ -1,4 +1,4 @@
-package client
+package cluster
 
 import (
 	"github.com/HideyoshiNakazone/yoshi-k3s/pkg/resources"
@@ -6,16 +6,13 @@ import (
 	"testing"
 )
 
-func TestK3sClient_ConfigureNode(t *testing.T) {
+func TestK3sCluster_ConfigureNode(t *testing.T) {
 	k3sToken := "token"
 	k3sVersion := "v1.30.2+k3s2"
 
-	masterNodes := NodeMapping[resources.K3sMasterNodeConfig]{}
-	workerNodes := NodeMapping[resources.K3sWorkerNodeConfig]{}
-
-	c := NewK3sClient(
-		masterNodes,
-		workerNodes,
+	c := NewK3sClientWithVersion(
+		k3sVersion,
+		k3sToken,
 	)
 
 	masterNodeArgs := []string{
@@ -33,9 +30,6 @@ func TestK3sClient_ConfigureNode(t *testing.T) {
 		"",
 	)
 	var masterNodeConfig = resources.NewK3sMasterNodeConfig(
-		"localhost",
-		k3sToken,
-		k3sVersion,
 		masterNodeSshConfig,
 	)
 
@@ -55,9 +49,6 @@ func TestK3sClient_ConfigureNode(t *testing.T) {
 	)
 	var workerNodeConfig = resources.NewK3sWorkerNodeConfig(
 		"master_node",
-		"localhost",
-		k3sToken,
-		k3sVersion,
 		workerNodeSshConfig,
 	)
 
@@ -72,25 +63,13 @@ func TestK3sClient_ConfigureNode(t *testing.T) {
 		return
 	}
 
-	if !c.IsMasterNodeConfigured(masterNodeConfig.GetHost()) {
-		t.Errorf("Master node not added to client")
-		return
-	}
-	t.Logf("Master nodes in the cluster: %v", len(c.masterNodes))
-
-	if !c.IsWorkerNodeConfigured(workerNodeConfig.GetHost()) {
-		t.Errorf("Worker node not added to client")
-		return
-	}
-	t.Logf("Worker nodes in the cluster: %v", len(c.workerNodes))
-
-	err = c.DestroyMasterNode(masterNodeConfig.GetHost())
+	err = c.DestroyMasterNode(*masterNodeConfig)
 	if err != nil {
 		t.Errorf("Error destroying master node: %v", err)
 		return
 	}
 
-	err = c.DestroyWorkerNode(workerNodeConfig.GetHost())
+	err = c.DestroyWorkerNode(*workerNodeConfig)
 	if err != nil {
 		t.Errorf("Error destroying worker node: %v", err)
 		return
