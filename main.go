@@ -11,7 +11,7 @@ var (
 )
 
 func main() {
-	flag.StringVar(&configPath, "str", "config.yml", "Path to Config File [default=config.yml]")
+	flag.StringVar(&configPath, "config", "config.yml", "Path to Config File [default=config.yml]")
 	flag.Bool("destroy", false, "Destroy Cluster")
 	flag.Parse()
 
