@@ -1,0 +1,26 @@
+cluster:
+    version: ${K3S_VERSION}
+    token: ${K3S_TOKEN}
+
+master_nodes:
+    - name: ${MASTER_NODE_NAME}
+      connection:
+          host: ${MASTER_NODE_HOST}
+          port: ${MASTER_NODE_PORT}
+          user: ${MASTER_NODE_USER}
+          password: ${MASTER_NODE_PASSWORD}
+      options:
+        - ${MASTER_NODE_OPTION_1}
+        - ${MASTER_NODE_OPTION_2}
+
+worker_nodes:
+    - name: ${WORKER_NODE_NAME}
+      server_address: ${MASTER_SERVER_ADDRESS}
+      connection:
+          host: ${WORKER_NODE_HOST}
+          port: ${WORKER_NODE_PORT}
+          user: ${WORKER_NODE_USER}
+          password: ${WORKER_NODE_PASSWORD}
+      options:
+        - ${WORKER_NODE_OPTION_1}
+        - ${WORKER_NODE_OPTION_2}

@@ -6,6 +6,9 @@ type K3sMasterNodeConfig struct {
 	connectionConfig *ssh_handler.SshConfig
 }
 
+// Check if K3sMasterNodeConfig implements NodeConfigInterface
+var _ NodeConfigInterface = &K3sMasterNodeConfig{}
+
 func NewK3sMasterNodeConfig(connectionConfig *ssh_handler.SshConfig) *K3sMasterNodeConfig {
 	return &K3sMasterNodeConfig{
 		connectionConfig: connectionConfig,
