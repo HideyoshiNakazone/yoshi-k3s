@@ -11,6 +11,9 @@ type K3sWorkerNodeConfig struct {
 	connectionConfig *ssh_handler.SshConfig
 }
 
+// Check if K3sWorkerNodeConfig implements NodeConfigInterface
+var _ NodeConfigInterface = &K3sWorkerNodeConfig{}
+
 func NewK3sWorkerNodeConfig(server string, connectionConfig *ssh_handler.SshConfig) *K3sWorkerNodeConfig {
 	return &K3sWorkerNodeConfig{
 		server:           server,
