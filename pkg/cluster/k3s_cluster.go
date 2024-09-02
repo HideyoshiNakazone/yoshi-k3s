@@ -58,8 +58,8 @@ func (c *K3sCluster) ConfigureMasterNode(k3sConfig resources.K3sMasterNodeConfig
 	commands := []string{
 		"sudo chmod 644 /etc/rancher/k3s/k3s.yaml;",
 		"mkdir -p $HOME/.kube;",
-		"cp /etc/rancher/k3s/k3s.yaml $HOME/.kube/k3s.yaml;",
-		"chmod g+r $HOME/.kube/k3s.yaml;",
+		"cp /etc/rancher/k3s/k3s.yaml $HOME/.kube/config;",
+		"chmod g+r $HOME/.kube/config;",
 	}
 
 	config := k3sConfig.GetConnectionConfig()
