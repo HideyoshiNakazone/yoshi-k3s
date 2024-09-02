@@ -19,11 +19,9 @@ jobs:
         run: go build -v ./pkg/...
 
       - name: Setup Testing Environment
-        run: docker-compose -f docker/docker-compose.yml up -d
+        uses: hoverkraft-tech/compose-action@v2.0.1
+        with:
+          compose-file: "./docker/docker-compose.yml"
 
       - name: Test with the Go CLI
         run: go test -v ./pkg/...
-
-      - name: Tear Down Testing Environment
-        if: always()
-        run: docker-compose -f docker/docker-compose.yml down
