@@ -54,6 +54,25 @@ func (s *SshHandler) WithSession(ssCommand SshCommandInterface, input *bytes.Buf
 	return session.Run(command)
 }
 
+func (s *SshHandler) WithSessionReturning(ssCommand SshCommandInterface, input *bytes.Buffer) ([]byte, error) {
+	session, err := s.createSshSession()
+	if err != nil {
+		return nil, err
+	}
+	defer session.Close()
+
+	if input.Len() > 0 {
+		session.Stdin = input
+	}
+
+	command, err := ssCommand.GetParsedCommand()
+	if err != nil {
+		return nil, err
+	}
+
+	return session.Output(command)
+}
+
 func (s *SshHandler) Close() error {
 	return s.sshClient.Close()
 }

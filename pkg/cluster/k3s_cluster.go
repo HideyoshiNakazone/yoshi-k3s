@@ -140,10 +140,10 @@ func (c *K3sCluster) configureNode(k3sConfig resources.NodeConfigInterface,
 	)
 }
 
-func (c *K3sCluster) configureKubeconfig(connectionConfig *ssh_handler.SshConfig) (string, error) {
+func (c *K3sCluster) configureKubeconfig(connectionConfig *ssh_handler.SshConfig) ([]byte, error) {
 	sshHandler, err := ssh_handler.NewSshHandler(connectionConfig)
 	if err != nil {
-		return "", err
+		return []byte(""), err
 	}
 
 	commands := []string{
@@ -160,17 +160,16 @@ func (c *K3sCluster) configureKubeconfig(connectionConfig *ssh_handler.SshConfig
 		connectionConfig.GetPassword(),
 	)
 	if err != nil {
-		return "", err
+		return []byte(""), err
 	}
 
-	err = c.executeK3sCommand(
+	return c.executeK3sCommandWithOutput(
 		sshHandler,
 		&ssh_handler.SshCommand{
 			BaseCommand: "cat $HOME/.kube/config",
 		},
 		connectionConfig.GetPassword(),
 	)
-
 }
 
 func (c *K3sCluster) executeK3sCommand(sshHandler *ssh_handler.SshHandler,
@@ -202,7 +201,7 @@ func (c *K3sCluster) executeK3sCommandWithOutput(sshHandler *ssh_handler.SshHand
 	}
 	if ctxt, cancelFunc := sshHandler.WithTerminalMode(&terminalMode); ctxt != nil {
 		defer (*cancelFunc)()
-		return sshHandler.WithSession(
+		return sshHandler.WithSessionReturning(
 			command,
 			bytes.NewBuffer([]byte(password+"\n")),
 		)

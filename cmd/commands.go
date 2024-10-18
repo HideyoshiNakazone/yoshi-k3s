@@ -4,6 +4,7 @@ import (
 	"github.com/HideyoshiNakazone/yoshi-k3s/pkg/cluster"
 	"github.com/HideyoshiNakazone/yoshi-k3s/pkg/resources"
 	"github.com/HideyoshiNakazone/yoshi-k3s/pkg/ssh_handler"
+	"gopkg.in/yaml.v3"
 	"os"
 )
 
