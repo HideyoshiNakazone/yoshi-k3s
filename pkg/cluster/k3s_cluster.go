@@ -14,8 +14,9 @@ type K3sCluster struct {
 	k3sCommandPrefix string
 	k3sBaseCommand   string
 
-	k3sVersion string
-	k3sToken   string
+	k3sVersion    string
+	k3sKubeConfig string
+	k3sToken      string
 }
 
 func NewK3sClient(token string) *K3sCluster {
@@ -45,31 +46,17 @@ func (c *K3sCluster) ConfigureMasterNode(k3sConfig resources.K3sMasterNodeConfig
 
 	options = append([]string{"server"}, options...)
 
-	err = c.configureNode(k3sConfig, make(map[string]string), options)
+	var envVariablesMap = make(map[string]string)
+	envVariablesMap["K3S_KUBECONFIG_MODE"] = "644"
+
+	err = c.configureNode(k3sConfig, envVariablesMap, options)
 	if err != nil {
 		return err
 	}
 
-	sshHandler, err := ssh_handler.NewSshHandler(k3sConfig.GetConnectionConfig())
-	if err != nil {
-		return err
-	}
+	c.configureKubeconfig(k3sConfig.GetConnectionConfig())
 
-	commands := []string{
-		"sudo chmod 644 /etc/rancher/k3s/k3s.yaml;",
-		"mkdir -p $HOME/.kube;",
-		"cp /etc/rancher/k3s/k3s.yaml $HOME/.kube/config;",
-		"chmod g+r $HOME/.kube/config;",
-	}
-
-	config := k3sConfig.GetConnectionConfig()
-	err = c.executeK3sCommand(
-		sshHandler,
-		&ssh_handler.SshCommand{
-			BaseCommand: strings.Join(commands, " "),
-		},
-		config.GetPassword(),
-	)
+	// TODO: Add extraction and configuration of KUBE_CONFIG from the master node, only the first master node is considered for now
 
 	return err
 }
@@ -153,6 +140,39 @@ func (c *K3sCluster) configureNode(k3sConfig resources.NodeConfigInterface,
 	)
 }
 
+func (c *K3sCluster) configureKubeconfig(connectionConfig *ssh_handler.SshConfig) (string, error) {
+	sshHandler, err := ssh_handler.NewSshHandler(connectionConfig)
+	if err != nil {
+		return "", err
+	}
+
+	commands := []string{
+		"mkdir -p $HOME/.kube;",
+		"cp /etc/rancher/k3s/k3s.yaml $HOME/.kube/config;",
+		"chmod g+r $HOME/.kube/config;",
+	}
+
+	err = c.executeK3sCommand(
+		sshHandler,
+		&ssh_handler.SshCommand{
+			BaseCommand: strings.Join(commands, " "),
+		},
+		connectionConfig.GetPassword(),
+	)
+	if err != nil {
+		return "", err
+	}
+
+	err = c.executeK3sCommand(
+		sshHandler,
+		&ssh_handler.SshCommand{
+			BaseCommand: "cat $HOME/.kube/config",
+		},
+		connectionConfig.GetPassword(),
+	)
+
+}
+
 func (c *K3sCluster) executeK3sCommand(sshHandler *ssh_handler.SshHandler,
 	command *ssh_handler.SshCommand,
 	password string) error {
@@ -170,4 +190,23 @@ func (c *K3sCluster) executeK3sCommand(sshHandler *ssh_handler.SshHandler,
 	}
 
 	return errors.New("failed to configure ssh session")
+}
+
+func (c *K3sCluster) executeK3sCommandWithOutput(sshHandler *ssh_handler.SshHandler,
+	command *ssh_handler.SshCommand,
+	password string) ([]byte, error) {
+	terminalMode := ssh.TerminalModes{
+		ssh.ECHO:          0,
+		ssh.TTY_OP_ISPEED: 14400, // input speed = 14.4kbaud
+		ssh.TTY_OP_OSPEED: 14400, // output speed = 14.4kbaud
+	}
+	if ctxt, cancelFunc := sshHandler.WithTerminalMode(&terminalMode); ctxt != nil {
+		defer (*cancelFunc)()
+		return sshHandler.WithSession(
+			command,
+			bytes.NewBuffer([]byte(password+"\n")),
+		)
+	}
+
+	return nil, errors.New("failed to configure ssh session")
 }

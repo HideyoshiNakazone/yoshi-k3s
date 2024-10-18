@@ -4,7 +4,6 @@ import (
 	"github.com/HideyoshiNakazone/yoshi-k3s/pkg/cluster"
 	"github.com/HideyoshiNakazone/yoshi-k3s/pkg/resources"
 	"github.com/HideyoshiNakazone/yoshi-k3s/pkg/ssh_handler"
-	"gopkg.in/yaml.v3"
 	"os"
 )
 
@@ -28,7 +27,7 @@ func ParseConfig(configPath string) *CusterConfig {
 	return &config
 }
 
-func ConfigureFromConfig(config *CusterConfig) error {
+func ConfigureFromConfig(config *CusterConfig, kubeconfigPath *string) error {
 	c := createClusterFromConfig(config)
 
 	for _, masterNode := range parseMasterNodes(config) {
