@@ -14,13 +14,14 @@ type K3sCluster struct {
 	k3sCommandPrefix string
 	k3sBaseCommand   string
 
-	k3sVersion    string
-	k3sKubeConfig string
-	k3sToken      string
+	k3sVersion       string
+	k3sKubeConfig    string
+	k3sToken         string
+	k3sServerAddress string
 }
 
-func NewK3sClient(token string) *K3sCluster {
-	if token == "" {
+func NewK3sClient(token string, serverAddress string) *K3sCluster {
+	if token == "" || serverAddress == "" {
 		return nil
 	}
 
@@ -28,17 +29,18 @@ func NewK3sClient(token string) *K3sCluster {
 		k3sCommandPrefix: "curl -sfL https://get.k3s.io |",
 		k3sBaseCommand:   "sh -s -",
 		k3sToken:         token,
+		k3sServerAddress: serverAddress,
 	}
 }
 
-func NewK3sClientWithVersion(version string, token string) *K3sCluster {
-	client := NewK3sClient(token)
+func NewK3sClientWithVersion(version string, token string, serverAddress string) *K3sCluster {
+	client := NewK3sClient(token, serverAddress)
 	client.k3sVersion = version
 
 	return client
 }
 
-func (c *K3sCluster) ConfigureMasterNode(k3sConfig resources.K3sMasterNodeConfig, options []string) (*[]byte, error) {
+func (c *K3sCluster) ConfigureMasterNode(k3sConfig resources.NodeConfig, options []string) (*[]byte, error) {
 	err := k3sConfig.IsValid()
 	if err != nil {
 		return nil, err
@@ -62,21 +64,21 @@ func (c *K3sCluster) ConfigureMasterNode(k3sConfig resources.K3sMasterNodeConfig
 	return &kubeconfig, err
 }
 
-func (c *K3sCluster) ConfigureWorkerNode(k3sConfig resources.K3sWorkerNodeConfig, options []string) error {
+func (c *K3sCluster) ConfigureWorkerNode(k3sConfig resources.NodeConfig, options []string) error {
 	err := k3sConfig.IsValid()
 	if err != nil {
 		return err
 	}
 
 	var envVariablesMap = make(map[string]string)
-	envVariablesMap["K3S_URL"] = fmt.Sprintf("https://%s:6443", k3sConfig.GetServer())
+	envVariablesMap["K3S_URL"] = fmt.Sprintf("https://%s:6443", c.k3sServerAddress)
 
 	options = append([]string{"agent"}, options...)
 
 	return c.configureNode(k3sConfig, envVariablesMap, options)
 }
 
-func (c *K3sCluster) DestroyMasterNode(k3sConfig resources.K3sMasterNodeConfig) error {
+func (c *K3sCluster) DestroyMasterNode(k3sConfig resources.NodeConfig) error {
 	sshHandler, err := ssh_handler.NewSshHandler(k3sConfig.GetConnectionConfig())
 	if err != nil {
 		return err
@@ -94,7 +96,7 @@ func (c *K3sCluster) DestroyMasterNode(k3sConfig resources.K3sMasterNodeConfig) 
 	return err
 }
 
-func (c *K3sCluster) DestroyWorkerNode(k3sConfig resources.K3sWorkerNodeConfig) error {
+func (c *K3sCluster) DestroyWorkerNode(k3sConfig resources.NodeConfig) error {
 	sshHandler, err := ssh_handler.NewSshHandler(k3sConfig.GetConnectionConfig())
 	if err != nil {
 		return err
@@ -112,7 +114,7 @@ func (c *K3sCluster) DestroyWorkerNode(k3sConfig resources.K3sWorkerNodeConfig) 
 	return err
 }
 
-func (c *K3sCluster) configureNode(k3sConfig resources.NodeConfigInterface,
+func (c *K3sCluster) configureNode(k3sConfig resources.NodeConfig,
 	envVariablesMap map[string]string,
 	options []string) error {
 	envVariablesMap["K3S_TOKEN"] = c.k3sToken
@@ -164,13 +166,27 @@ func (c *K3sCluster) configureKubeconfig(connectionConfig *ssh_handler.SshConfig
 		return []byte(""), err
 	}
 
-	return c.executeK3sCommandWithOutput(
+	kubeconfigContent, err := c.executeK3sCommandWithOutput(
 		sshHandler,
 		&ssh_handler.SshCommand{
 			BaseCommand: "cat $HOME/.kube/config",
 		},
 		connectionConfig.GetPassword(),
 	)
+
+	if err != nil {
+		return []byte(""), err
+	}
+
+	LOCALHOST_ADDRESS := "127.0.0.1"
+	kubeconfigContent = bytes.Replace(
+		kubeconfigContent,
+		[]byte(LOCALHOST_ADDRESS),
+		[]byte(c.k3sServerAddress),
+		1,
+	)
+
+	return kubeconfigContent, err
 }
 
 func (c *K3sCluster) executeK3sCommand(sshHandler *ssh_handler.SshHandler,

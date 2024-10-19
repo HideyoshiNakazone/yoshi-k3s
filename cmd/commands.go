@@ -9,7 +9,7 @@ import (
 	"os"
 )
 
-type NodePair[T resources.NodeConfigInterface] struct {
+type NodePair[T resources.NodeConfig] struct {
 	Config  *T
 	Options *[]string
 }
@@ -86,17 +86,25 @@ func DeleteFromConfig(config *CusterConfig) error {
 
 func createClusterFromConfig(config *CusterConfig) *cluster.K3sCluster {
 	if config.Cluster.Version == "" {
-		return cluster.NewK3sClient(config.Cluster.Token)
+		return cluster.NewK3sClient(
+			config.Cluster.Token,
+			config.Cluster.ServerAddress,
+		)
 	}
 
-	return cluster.NewK3sClientWithVersion(config.Cluster.Version, config.Cluster.Token)
+	return cluster.NewK3sClientWithVersion(
+		config.Cluster.Version,
+		config.Cluster.Token,
+		config.Cluster.ServerAddress,
+	)
 }
 
-func parseMasterNodes(config *CusterConfig) []NodePair[resources.K3sMasterNodeConfig] {
-	var masterNodes []NodePair[resources.K3sMasterNodeConfig]
+func parseMasterNodes(config *CusterConfig) []NodePair[resources.NodeConfig] {
+	var masterNodes []NodePair[resources.NodeConfig]
 
 	for _, node := range config.MasterNodes {
-		masterConfig := resources.NewK3sMasterNodeConfig(
+		masterConfig := resources.NewNodeConfig(
+			node.Name,
 			ssh_handler.NewSshConfig(
 				node.Connection.Host,
 				node.Connection.Port,
@@ -107,7 +115,7 @@ func parseMasterNodes(config *CusterConfig) []NodePair[resources.K3sMasterNodeCo
 			),
 		)
 
-		masterNodes = append(masterNodes, NodePair[resources.K3sMasterNodeConfig]{
+		masterNodes = append(masterNodes, NodePair[resources.NodeConfig]{
 			Config:  masterConfig,
 			Options: &node.Options,
 		})
@@ -116,12 +124,12 @@ func parseMasterNodes(config *CusterConfig) []NodePair[resources.K3sMasterNodeCo
 	return masterNodes
 }
 
-func parseWorkerNodes(config *CusterConfig) []NodePair[resources.K3sWorkerNodeConfig] {
-	var workerNodes []NodePair[resources.K3sWorkerNodeConfig]
+func parseWorkerNodes(config *CusterConfig) []NodePair[resources.NodeConfig] {
+	var workerNodes []NodePair[resources.NodeConfig]
 
 	for _, node := range config.WorkerNodes {
-		workerConfig := resources.NewK3sWorkerNodeConfig(
-			node.ServerAddress,
+		workerConfig := resources.NewNodeConfig(
+			node.Name,
 			ssh_handler.NewSshConfig(
 				node.Connection.Host,
 				node.Connection.Port,
@@ -131,7 +139,7 @@ func parseWorkerNodes(config *CusterConfig) []NodePair[resources.K3sWorkerNodeCo
 				node.Connection.PrivateKeyPassphrase,
 			),
 		)
-		workerNodes = append(workerNodes, NodePair[resources.K3sWorkerNodeConfig]{
+		workerNodes = append(workerNodes, NodePair[resources.NodeConfig]{
 			Config:  workerConfig,
 			Options: &node.Options,
 		})
