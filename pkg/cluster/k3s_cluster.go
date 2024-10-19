@@ -15,14 +15,14 @@ type K3sCluster struct {
 	k3sCommandPrefix string
 	k3sBaseCommand   string
 
-	k3sVersion       string
-	k3sKubeConfig    string
-	k3sToken         string
-	k3sServerAddress string
+	k3sVersion    string
+	k3sKubeConfig string
+	k3sToken      string
+	k3sAddress    string
 }
 
-func NewK3sClient(token string, serverAddress string) *K3sCluster {
-	if token == "" || serverAddress == "" {
+func NewK3sClient(token string, clusterAddress string) *K3sCluster {
+	if token == "" || clusterAddress == "" {
 		return nil
 	}
 
@@ -30,7 +30,7 @@ func NewK3sClient(token string, serverAddress string) *K3sCluster {
 		k3sCommandPrefix: "curl -sfL https://get.k3s.io |",
 		k3sBaseCommand:   "sh -s -",
 		k3sToken:         token,
-		k3sServerAddress: serverAddress,
+		k3sAddress:       clusterAddress,
 	}
 }
 
@@ -72,7 +72,7 @@ func (c *K3sCluster) ConfigureWorkerNode(k3sConfig resources.NodeConfig, options
 	}
 
 	var envVariablesMap = make(map[string]string)
-	envVariablesMap["K3S_URL"] = fmt.Sprintf("https://%s:6443", c.k3sServerAddress)
+	envVariablesMap["K3S_URL"] = fmt.Sprintf("https://%s:6443", c.k3sAddress)
 
 	options = append([]string{"agent"}, options...)
 
@@ -179,7 +179,7 @@ func (c *K3sCluster) configureKubeconfig(connectionConfig *ssh_handler.SshConfig
 		return nil, err
 	}
 
-	return kubeconfig.UpdateServerAddress(&kubeconfigContent, c.k3sServerAddress)
+	return kubeconfig.UpdateServerAddress(&kubeconfigContent, c.k3sAddress)
 }
 
 func (c *K3sCluster) executeK3sCommand(sshHandler *ssh_handler.SshHandler,
