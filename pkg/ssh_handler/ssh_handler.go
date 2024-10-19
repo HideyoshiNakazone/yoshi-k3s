@@ -45,6 +45,7 @@ func (s *SshHandler) WithSession(ssCommand SshCommandInterface, input *bytes.Buf
 	if input.Len() > 0 {
 		session.Stdin = input
 	}
+	session.Stdout = os.Stdout
 
 	command, err := ssCommand.GetParsedCommand()
 	if err != nil {
@@ -95,7 +96,6 @@ func (s *SshHandler) createSshSession() (*ssh.Session, error) {
 		}
 	}
 
-	session.Stdout = os.Stdout
 	session.Stderr = os.Stderr
 
 	return session, nil

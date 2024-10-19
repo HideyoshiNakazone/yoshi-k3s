@@ -1,6 +1,7 @@
 package cmd
 
 import (
+	"fmt"
 	"github.com/HideyoshiNakazone/yoshi-k3s/pkg/cluster"
 	"github.com/HideyoshiNakazone/yoshi-k3s/pkg/resources"
 	"github.com/HideyoshiNakazone/yoshi-k3s/pkg/ssh_handler"
@@ -31,10 +32,16 @@ func ParseConfig(configPath string) *CusterConfig {
 func ConfigureFromConfig(config *CusterConfig, kubeconfigPath *string) error {
 	c := createClusterFromConfig(config)
 
+	var kubeconfigContent *[]byte
+
 	for _, masterNode := range parseMasterNodes(config) {
-		err := c.ConfigureMasterNode(*masterNode.Config, *masterNode.Options)
+		nodeConfig, err := c.ConfigureMasterNode(*masterNode.Config, *masterNode.Options)
 		if err != nil {
 			return err
+		}
+
+		if kubeconfigContent == nil {
+			kubeconfigContent = nodeConfig
 		}
 	}
 
@@ -43,6 +50,15 @@ func ConfigureFromConfig(config *CusterConfig, kubeconfigPath *string) error {
 		if err != nil {
 			return err
 		}
+	}
+
+	if kubeconfigContent == nil {
+		return fmt.Errorf("invalid KUBECONFIG Returned, check the cluster state")
+	}
+
+	err := writeKubeconfig(kubeconfigPath, *kubeconfigContent)
+	if err != nil {
+		return err
 	}
 
 	return nil
@@ -122,4 +138,8 @@ func parseWorkerNodes(config *CusterConfig) []NodePair[resources.K3sWorkerNodeCo
 	}
 
 	return workerNodes
+}
+
+func writeKubeconfig(kubeconfigPath *string, kubeconfigContent []byte) error {
+	return os.WriteFile(*kubeconfigPath, kubeconfigContent, 0644)
 }

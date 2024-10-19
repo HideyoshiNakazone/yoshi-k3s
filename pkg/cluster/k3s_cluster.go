@@ -38,10 +38,10 @@ func NewK3sClientWithVersion(version string, token string) *K3sCluster {
 	return client
 }
 
-func (c *K3sCluster) ConfigureMasterNode(k3sConfig resources.K3sMasterNodeConfig, options []string) error {
+func (c *K3sCluster) ConfigureMasterNode(k3sConfig resources.K3sMasterNodeConfig, options []string) (*[]byte, error) {
 	err := k3sConfig.IsValid()
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	options = append([]string{"server"}, options...)
@@ -51,14 +51,15 @@ func (c *K3sCluster) ConfigureMasterNode(k3sConfig resources.K3sMasterNodeConfig
 
 	err = c.configureNode(k3sConfig, envVariablesMap, options)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
-	c.configureKubeconfig(k3sConfig.GetConnectionConfig())
+	kubeconfig, err := c.configureKubeconfig(k3sConfig.GetConnectionConfig())
+	if err != nil {
+		return nil, err
+	}
 
-	// TODO: Add extraction and configuration of KUBE_CONFIG from the master node, only the first master node is considered for now
-
-	return err
+	return &kubeconfig, err
 }
 
 func (c *K3sCluster) ConfigureWorkerNode(k3sConfig resources.K3sWorkerNodeConfig, options []string) error {

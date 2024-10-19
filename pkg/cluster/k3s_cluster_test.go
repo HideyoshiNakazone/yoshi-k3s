@@ -33,8 +33,8 @@ func TestK3sCluster_ConfigureNode(t *testing.T) {
 		masterNodeSshConfig,
 	)
 
-	err := c.ConfigureMasterNode(*masterNodeConfig, masterNodeArgs)
-	if err != nil {
+	kubeconfig, err := c.ConfigureMasterNode(*masterNodeConfig, masterNodeArgs)
+	if err != nil || kubeconfig == nil {
 		t.Errorf("Error configuring master node: %v", err)
 		return
 	}
