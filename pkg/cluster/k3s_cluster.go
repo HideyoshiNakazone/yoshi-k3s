@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"errors"
 	"fmt"
+	"github.com/HideyoshiNakazone/yoshi-k3s/pkg/kubeconfig"
 	"github.com/HideyoshiNakazone/yoshi-k3s/pkg/resources"
 	"github.com/HideyoshiNakazone/yoshi-k3s/pkg/ssh_handler"
 	"golang.org/x/crypto/ssh"
@@ -56,12 +57,12 @@ func (c *K3sCluster) ConfigureMasterNode(k3sConfig resources.NodeConfig, options
 		return nil, err
 	}
 
-	kubeconfig, err := c.configureKubeconfig(k3sConfig.GetConnectionConfig())
-	if err != nil {
+	nodeConfig, err := c.configureKubeconfig(k3sConfig.GetConnectionConfig())
+	if err != nil || nodeConfig == nil {
 		return nil, err
 	}
 
-	return &kubeconfig, err
+	return nodeConfig, err
 }
 
 func (c *K3sCluster) ConfigureWorkerNode(k3sConfig resources.NodeConfig, options []string) error {
@@ -143,10 +144,10 @@ func (c *K3sCluster) configureNode(k3sConfig resources.NodeConfig,
 	)
 }
 
-func (c *K3sCluster) configureKubeconfig(connectionConfig *ssh_handler.SshConfig) ([]byte, error) {
+func (c *K3sCluster) configureKubeconfig(connectionConfig *ssh_handler.SshConfig) (*[]byte, error) {
 	sshHandler, err := ssh_handler.NewSshHandler(connectionConfig)
 	if err != nil {
-		return []byte(""), err
+		return nil, err
 	}
 
 	commands := []string{
@@ -163,7 +164,7 @@ func (c *K3sCluster) configureKubeconfig(connectionConfig *ssh_handler.SshConfig
 		connectionConfig.GetPassword(),
 	)
 	if err != nil {
-		return []byte(""), err
+		return nil, err
 	}
 
 	kubeconfigContent, err := c.executeK3sCommandWithOutput(
@@ -175,18 +176,10 @@ func (c *K3sCluster) configureKubeconfig(connectionConfig *ssh_handler.SshConfig
 	)
 
 	if err != nil {
-		return []byte(""), err
+		return nil, err
 	}
 
-	LOCALHOST_ADDRESS := "127.0.0.1"
-	kubeconfigContent = bytes.Replace(
-		kubeconfigContent,
-		[]byte(LOCALHOST_ADDRESS),
-		[]byte(c.k3sServerAddress),
-		1,
-	)
-
-	return kubeconfigContent, err
+	return kubeconfig.UpdateServerAddress(&kubeconfigContent, c.k3sServerAddress)
 }
 
 func (c *K3sCluster) executeK3sCommand(sshHandler *ssh_handler.SshHandler,

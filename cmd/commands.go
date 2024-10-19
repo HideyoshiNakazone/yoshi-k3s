@@ -41,6 +41,8 @@ func ConfigureFromConfig(config *CusterConfig, kubeconfigPath *string) error {
 		}
 
 		if kubeconfigContent == nil {
+			// When configuring a K3S cluster all certificates are the same,
+			// so we can use the kubeconfig from any master node
 			kubeconfigContent = nodeConfig
 		}
 	}
