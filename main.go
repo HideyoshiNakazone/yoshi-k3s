@@ -7,11 +7,13 @@ import (
 )
 
 var (
-	configPath string
+	configPath     string
+	kubeconfigPath string
 )
 
 func main() {
 	flag.StringVar(&configPath, "config", "config.yml", "Path to Config File [default=config.yml]")
+	flag.StringVar(&kubeconfigPath, "kubeconfig", "kubeconfig", "Path to KUBECONFIG File [default=kubeconfig]")
 	flag.Bool("destroy", false, "Destroy Cluster")
 	flag.Parse()
 
@@ -27,7 +29,7 @@ func main() {
 			fmt.Println("Error deleting cluster")
 		}
 	} else {
-		err := cmd.ConfigureFromConfig(config)
+		err := cmd.ConfigureFromConfig(config, &kubeconfigPath)
 		if err != nil {
 			fmt.Println("Error configuring cluster")
 		}

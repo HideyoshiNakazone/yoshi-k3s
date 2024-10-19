@@ -9,10 +9,12 @@ import (
 func TestK3sCluster_ConfigureNode(t *testing.T) {
 	k3sToken := "token"
 	k3sVersion := "v1.30.2+k3s2"
+	k3sServerAddress := "master_node"
 
 	c := NewK3sClientWithVersion(
 		k3sVersion,
 		k3sToken,
+		k3sServerAddress,
 	)
 
 	masterNodeArgs := []string{
@@ -21,35 +23,34 @@ func TestK3sCluster_ConfigureNode(t *testing.T) {
 		"--snapshotter native",
 	}
 
-	var masterNodeSshConfig = ssh_handler.NewSshConfig(
-		"localhost",
-		"2222",
-		"sshuser",
-		"password",
-		"",
-		"",
-	)
-	var masterNodeConfig = resources.NewK3sMasterNodeConfig(
-		masterNodeSshConfig,
+	var masterNodeConfig = resources.NewNodeConfig(
+		"master_node",
+		ssh_handler.NewSshConfig(
+			"localhost",
+			"2222",
+			"sshuser",
+			"password",
+			"",
+			"",
+		),
 	)
 
-	err := c.ConfigureMasterNode(*masterNodeConfig, masterNodeArgs)
-	if err != nil {
+	kubeconfig, err := c.ConfigureMasterNode(*masterNodeConfig, masterNodeArgs)
+	if err != nil || kubeconfig == nil {
 		t.Errorf("Error configuring master node: %v", err)
 		return
 	}
 
-	var workerNodeSshConfig = ssh_handler.NewSshConfig(
-		"localhost",
-		"3333",
-		"sshuser",
-		"password",
-		"",
-		"",
-	)
-	var workerNodeConfig = resources.NewK3sWorkerNodeConfig(
-		"master_node",
-		workerNodeSshConfig,
+	var workerNodeConfig = resources.NewNodeConfig(
+		"worker_node",
+		ssh_handler.NewSshConfig(
+			"localhost",
+			"3333",
+			"sshuser",
+			"password",
+			"",
+			"",
+		),
 	)
 
 	workerNodeArgs := []string{

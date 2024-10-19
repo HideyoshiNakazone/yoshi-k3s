@@ -83,6 +83,30 @@ func TestNewSshHandlerFromPrivateKeyWithPassphrase(t *testing.T) {
 	}
 }
 
+func TestSshHandler_WithSessionReturning(t *testing.T) {
+	host := "localhost"
+	port := "2222"
+	user := "sshuser"
+	password := "password"
+
+	sshHandler, err := NewSshHandler(
+		NewSshConfig(host, port, user, password, "", ""),
+	)
+	if err != nil {
+		t.Errorf("Error creating SSH handler: %s", err)
+		return
+	}
+
+	command := &SshCommand{
+		BaseCommand: "echo",
+		Args:        []string{"'hello world'"},
+	}
+	output, err := sshHandler.WithSessionReturning(command, &bytes.Buffer{})
+	if err != nil && string(output[:]) != "hello world" {
+		t.Errorf("Error running command: %s", err)
+	}
+}
+
 func TestSSHHandler_WithSession(t *testing.T) {
 	host := "localhost"
 	port := "2222"

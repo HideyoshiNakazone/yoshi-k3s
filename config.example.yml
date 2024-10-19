@@ -1,6 +1,7 @@
 cluster:
     version: ${K3S_VERSION}
     token: ${K3S_TOKEN}
+    server_address: ${MASTER_SERVER_ADDRESS}
 
 master_nodes:
     - name: ${MASTER_NODE_NAME}
@@ -15,7 +16,6 @@ master_nodes:
 
 worker_nodes:
     - name: ${WORKER_NODE_NAME}
-      server_address: ${MASTER_SERVER_ADDRESS}
       connection:
           host: ${WORKER_NODE_HOST}
           port: ${WORKER_NODE_PORT}

@@ -1,6 +1,7 @@
 package cmd
 
 import (
+	"fmt"
 	"github.com/HideyoshiNakazone/yoshi-k3s/pkg/cluster"
 	"github.com/HideyoshiNakazone/yoshi-k3s/pkg/resources"
 	"github.com/HideyoshiNakazone/yoshi-k3s/pkg/ssh_handler"
@@ -8,7 +9,7 @@ import (
 	"os"
 )
 
-type NodePair[T resources.NodeConfigInterface] struct {
+type NodePair[T resources.NodeConfig] struct {
 	Config  *T
 	Options *[]string
 }
@@ -28,13 +29,21 @@ func ParseConfig(configPath string) *CusterConfig {
 	return &config
 }
 
-func ConfigureFromConfig(config *CusterConfig) error {
+func ConfigureFromConfig(config *CusterConfig, kubeconfigPath *string) error {
 	c := createClusterFromConfig(config)
 
+	var kubeconfigContent *[]byte
+
 	for _, masterNode := range parseMasterNodes(config) {
-		err := c.ConfigureMasterNode(*masterNode.Config, *masterNode.Options)
+		nodeConfig, err := c.ConfigureMasterNode(*masterNode.Config, *masterNode.Options)
 		if err != nil {
 			return err
+		}
+
+		if kubeconfigContent == nil {
+			// When configuring a K3S cluster all certificates are the same,
+			// so we can use the kubeconfig from any master node
+			kubeconfigContent = nodeConfig
 		}
 	}
 
@@ -43,6 +52,15 @@ func ConfigureFromConfig(config *CusterConfig) error {
 		if err != nil {
 			return err
 		}
+	}
+
+	if kubeconfigContent == nil {
+		return fmt.Errorf("invalid KUBECONFIG Returned, check the cluster state")
+	}
+
+	err := writeKubeconfig(kubeconfigPath, *kubeconfigContent)
+	if err != nil {
+		return err
 	}
 
 	return nil
@@ -70,17 +88,25 @@ func DeleteFromConfig(config *CusterConfig) error {
 
 func createClusterFromConfig(config *CusterConfig) *cluster.K3sCluster {
 	if config.Cluster.Version == "" {
-		return cluster.NewK3sClient(config.Cluster.Token)
+		return cluster.NewK3sClient(
+			config.Cluster.Token,
+			config.Cluster.ServerAddress,
+		)
 	}
 
-	return cluster.NewK3sClientWithVersion(config.Cluster.Version, config.Cluster.Token)
+	return cluster.NewK3sClientWithVersion(
+		config.Cluster.Version,
+		config.Cluster.Token,
+		config.Cluster.ServerAddress,
+	)
 }
 
-func parseMasterNodes(config *CusterConfig) []NodePair[resources.K3sMasterNodeConfig] {
-	var masterNodes []NodePair[resources.K3sMasterNodeConfig]
+func parseMasterNodes(config *CusterConfig) []NodePair[resources.NodeConfig] {
+	var masterNodes []NodePair[resources.NodeConfig]
 
 	for _, node := range config.MasterNodes {
-		masterConfig := resources.NewK3sMasterNodeConfig(
+		masterConfig := resources.NewNodeConfig(
+			node.Name,
 			ssh_handler.NewSshConfig(
 				node.Connection.Host,
 				node.Connection.Port,
@@ -91,7 +117,7 @@ func parseMasterNodes(config *CusterConfig) []NodePair[resources.K3sMasterNodeCo
 			),
 		)
 
-		masterNodes = append(masterNodes, NodePair[resources.K3sMasterNodeConfig]{
+		masterNodes = append(masterNodes, NodePair[resources.NodeConfig]{
 			Config:  masterConfig,
 			Options: &node.Options,
 		})
@@ -100,12 +126,12 @@ func parseMasterNodes(config *CusterConfig) []NodePair[resources.K3sMasterNodeCo
 	return masterNodes
 }
 
-func parseWorkerNodes(config *CusterConfig) []NodePair[resources.K3sWorkerNodeConfig] {
-	var workerNodes []NodePair[resources.K3sWorkerNodeConfig]
+func parseWorkerNodes(config *CusterConfig) []NodePair[resources.NodeConfig] {
+	var workerNodes []NodePair[resources.NodeConfig]
 
 	for _, node := range config.WorkerNodes {
-		workerConfig := resources.NewK3sWorkerNodeConfig(
-			node.ServerAddress,
+		workerConfig := resources.NewNodeConfig(
+			node.Name,
 			ssh_handler.NewSshConfig(
 				node.Connection.Host,
 				node.Connection.Port,
@@ -115,11 +141,15 @@ func parseWorkerNodes(config *CusterConfig) []NodePair[resources.K3sWorkerNodeCo
 				node.Connection.PrivateKeyPassphrase,
 			),
 		)
-		workerNodes = append(workerNodes, NodePair[resources.K3sWorkerNodeConfig]{
+		workerNodes = append(workerNodes, NodePair[resources.NodeConfig]{
 			Config:  workerConfig,
 			Options: &node.Options,
 		})
 	}
 
 	return workerNodes
+}
+
+func writeKubeconfig(kubeconfigPath *string, kubeconfigContent []byte) error {
+	return os.WriteFile(*kubeconfigPath, kubeconfigContent, 0644)
 }
