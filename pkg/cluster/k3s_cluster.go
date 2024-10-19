@@ -48,6 +48,10 @@ func (c *K3sCluster) ConfigureMasterNode(k3sConfig resources.NodeConfig, options
 	}
 
 	options = append([]string{"server"}, options...)
+	options = append(
+		[]string{fmt.Sprintf("--tls-san %s", c.k3sAddress)},
+		options...,
+	)
 
 	var envVariablesMap = make(map[string]string)
 	envVariablesMap["K3S_KUBECONFIG_MODE"] = "644"
