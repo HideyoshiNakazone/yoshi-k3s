@@ -12,7 +12,7 @@ func UpdateServerAddress(kubeconfigData *[]byte, serverAddress string) (*[]byte,
 	}
 
 	for i := range kubeconfig.Clusters {
-		kubeconfig.Clusters[i].Cluster.Server = fmt.Sprintf("%s:6443", serverAddress)
+		kubeconfig.Clusters[i].Cluster.Server = fmt.Sprintf("https://%s:6443", serverAddress)
 	}
 
 	newKubeconfigData, err := yaml.Marshal(kubeconfig)
