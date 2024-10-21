@@ -24,8 +24,8 @@ type KubeconfigModel struct {
 	Users          []struct {
 		Name string `yaml:"name"`
 		User struct {
-			Password string `yaml:"password"`
-			Username string `yaml:"username"`
+			ClientCertificateData string `yaml:"client-certificate-data"`
+			ClientKeyData         string `yaml:"client-key-data"`
 		} `yaml:"user"`
 	} `yaml:"users"`
 }
